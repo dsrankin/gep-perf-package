@@ -1,0 +1,87 @@
+Metadata-Version: 2.4
+Name: gep-perf
+Version: 0.1.0
+Summary: Package extracted from make_gep_perf.ipynb for matching and performance studies.
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: numpy<2.0
+Requires-Dist: pyyaml
+Requires-Dist: tqdm
+Requires-Dist: matplotlib
+Requires-Dist: scipy>=1.10
+Requires-Dist: uproot
+Requires-Dist: awkward
+Requires-Dist: vector
+
+# gep-perf
+
+This package is a direct extraction of the functionality in `make_gep_perf.ipynb` into an importable Python package with a CLI.
+
+## Install (editable)
+
+```bash
+pip install -e .
+```
+
+## Run
+
+```bash
+gep-perf run configs/jet_example.yaml --plotdir perf_plots --resdir perf_results
+```
+
+Outputs:
+- `.npz` result files in `--resdir`
+- plots in `--plotdir`
+
+## YAML configuration
+
+Top-level keys correspond to the original `RunConfig` dataclass fields, except selections, which are expressed as `selectors`.
+
+Example:
+
+```yaml
+name: Jet
+signal_files: [".../outputGEPNtuple.root"]
+background_files: [".../outputGEPNtuple.root", "..."]
+background_weights: [76.66, 3.66, 0, 0, 0, 0]
+reco_prefixes: ["AntiKt4GEPCellsE6LSB40G4TowerAlgJets", "..."]
+truth_prefix: AntiKt4TruthJets
+truth_suffix: ""
+match_dict:
+  pt_reco_names: ["pt","pt","pt","pt","et","pt","pt","pt"]
+
+nobjs: [1,2,3,4]
+
+selectors:
+  - name: null_selector
+    label: ""
+  - name: boosted_truth_selector
+    label: "_boosted"
+    kwargs: {dr_threshold: 0.7}
+  - name: hh_mass_window_selector
+    label: "_hhmass"
+
+truth_pt_bins: [20, 22, 24, ...]
+truth_eta_bins: [-4.9, -3.2, ...]
+do_rho_sub: true
+rates: [50, 50, 75, 100]
+triggers: [[60,100],[50,60],[50,90],[40,50]]
+
+# optional overrides
+tree: ntuple
+dr_max: 0.2
+reco_pt_min: 5.0
+truth_pt_min: 20.0
+pt_min: 5.0
+reco_iso_dr: 0.4
+truth_iso_dr: 0.6
+extra_vars: []
+```
+
+### Supported selector names
+
+- `null_selector`
+- `boosted_truth_selector` (kwargs: `dr_threshold`, `debug`, `chunk_size`)
+- `hh_mass_window_selector`
+
+To add more, extend `gep_perf.config.SELECTORS`.

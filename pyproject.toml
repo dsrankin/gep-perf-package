@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gep-perf"
+version = "0.1.0"
+description = "Package extracted from make_gep_perf.ipynb for matching and performance studies."
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+  "numpy",
+  "pyyaml",
+  "tqdm",
+  "matplotlib",
+  "scipy>=1.10",
+  "uproot",
+  "awkward",
+  "vector",
+]
+
+[project.scripts]
+gep-perf = "gep_perf.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

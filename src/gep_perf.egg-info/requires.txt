@@ -1,0 +1,8 @@
+numpy<2.0
+pyyaml
+tqdm
+matplotlib
+scipy>=1.10
+uproot
+awkward
+vector

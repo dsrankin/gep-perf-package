@@ -1,0 +1,7 @@
+# ignore generated html files,
+*.pkl
+setup.sh
+perf_plots
+perf_results
+# except foo.html which is maintained by hand
+!foo.html
