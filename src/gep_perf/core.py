@@ -46,7 +46,7 @@ class RunConfig:
     do_rho_sub: bool
     rates: list[float]
     triggers :list[list[float]]
-    extra_vars: list[str]
+    extra_vars: dict[str, list[str]]
     tree: str = "ntuple"
     dr_max: float = 0.2
     reco_pt_min: float = 10.
@@ -93,9 +93,10 @@ def delta_phi(phi1,phi2):
     dphi = dphi-2*np.pi*(dphi>np.pi).astype(np.float32)
     return dphi
 
-def match_chunk_vectorized(chunk, reco_prefixes, reco_branches, truth_branches, dr_max, 
+def match_chunk_vectorized(chunk, reco_prefixes, reco_branches, truth_branches, dr_max,
                           reco_iso_dr=0.4, truth_iso_dr=0.4,
-                          reco_pt_min=None, truth_pt_min=None, pt_min=None):
+                          reco_pt_min=None, truth_pt_min=None, pt_min=None,
+                          extra_vars_by_prefix=None):
     """
     Vectorized matching for an entire chunk of events using awkward arrays.
     Non-greedy: each truth object matches to its closest reco object within dr_max.
@@ -122,21 +123,30 @@ def match_chunk_vectorized(chunk, reco_prefixes, reco_branches, truth_branches, 
 #         t_eta = t_eta[t_isolated]
 #         t_phi = t_phi[t_isolated]
     
+    if extra_vars_by_prefix is None:
+        extra_vars_by_prefix = {}
+
     results = {
         'reco_pt': {}, 'reco_eta': {}, 'reco_phi': {},
-        'truth_pt': {}, 'truth_eta': {}, 'truth_phi': {}
+        'truth_pt': {}, 'truth_eta': {}, 'truth_phi': {},
+        'reco_extra': {},
     }
     
     for reco_prefix in reco_prefixes:
         r_pt = chunk[reco_branches[reco_prefix][0]]
         r_eta = chunk[reco_branches[reco_prefix][1]]
         r_phi = chunk[reco_branches[reco_prefix][2]]
+        r_extra = {}
+        for extra_name in extra_vars_by_prefix.get(reco_prefix, []):
+            r_extra[extra_name] = chunk[f"{reco_prefix}_{extra_name}"]
 
         # Apply pT cuts if specified
         r_mask = r_pt > pt_min
         r_pt = r_pt[r_mask]
         r_eta = r_eta[r_mask]
         r_phi = r_phi[r_mask]
+        for extra_name in r_extra:
+            r_extra[extra_name] = r_extra[extra_name][r_mask]
         
         # Apply reco isolation if specified
         r_isolated = compute_isolation_awkward(r_eta, r_phi, reco_iso_dr)
@@ -148,7 +158,19 @@ def match_chunk_vectorized(chunk, reco_prefixes, reco_branches, truth_branches, 
             r_isolated = r_isolated & (r_pt > reco_pt_min)
         
         # Full vectorized matching
-        matched = match_awkward_full(r_pt, r_eta, r_phi, t_pt, t_eta, t_phi, dr_max, r_isolated, t_isolated, pt_min)
+        matched = match_awkward_full(
+            r_pt,
+            r_eta,
+            r_phi,
+            t_pt,
+            t_eta,
+            t_phi,
+            dr_max,
+            r_isolated,
+            t_isolated,
+            pt_min,
+            extra_vars=r_extra,
+        )
         
         results['reco_pt'][reco_prefix] = matched['reco_pt']
         results['reco_eta'][reco_prefix] = matched['reco_eta']
@@ -156,6 +178,7 @@ def match_chunk_vectorized(chunk, reco_prefixes, reco_branches, truth_branches, 
         results['truth_pt'][reco_prefix] = matched['truth_pt']
         results['truth_eta'][reco_prefix] = matched['truth_eta']
         results['truth_phi'][reco_prefix] = matched['truth_phi']
+        results['reco_extra'][reco_prefix] = matched.get('reco_extra', {})
     
     return results
 
@@ -184,7 +207,7 @@ def compute_isolation_awkward(eta, phi, iso_dr):
     
     return ~has_nearby
 
-def match_awkward_full(r_pt, r_eta, r_phi, t_pt, t_eta, t_phi, dr_max, riso, tiso, ptmin, k=4):
+def match_awkward_full(r_pt, r_eta, r_phi, t_pt, t_eta, t_phi, dr_max, riso, tiso, ptmin, k=4, extra_vars=None):
     """
     Full vectorized matching using awkward arrays.
     Non-greedy: each truth object matches to closest reco within dr_max.
@@ -272,7 +295,7 @@ def match_awkward_full(r_pt, r_eta, r_phi, t_pt, t_eta, t_phi, dr_max, riso, tis
     #print('n_reco',np.histogram(ak.to_numpy(ak.count_nonzero(reco_pt_out>0, axis=-1))))
     #print('n_truth',np.histogram(ak.to_numpy(ak.count_nonzero(truth_pt_out>0, axis=-1))))
 
-    return {
+    output = {
         'reco_pt': reco_pt_out,
         'reco_eta': reco_eta_out,
         'reco_phi': reco_phi_out,
@@ -280,6 +303,40 @@ def match_awkward_full(r_pt, r_eta, r_phi, t_pt, t_eta, t_phi, dr_max, riso, tis
         'truth_eta': truth_eta_out,
         'truth_phi': truth_phi_out,
     }
+
+    if extra_vars:
+        reco_extra_out = {}
+        for extra_name, r_extra in extra_vars.items():
+            matched_extra = r_extra[closest_reco_idx]
+            matched_extra = ak.where(has_match, matched_extra, np.nan)
+            unmatched_extra = r_extra[(~reco_was_matched) & (r_pt > ptmin)]
+            unmatched_extra = unmatched_extra[order]
+            unmatched_extra = unmatched_extra[:,:k]
+            reco_extra_out[extra_name] = ak.concatenate([matched_extra, unmatched_extra], axis=1)
+        output['reco_extra'] = reco_extra_out
+
+    return output
+
+
+def _normalize_extra_vars(reco_prefixes, extra_vars):
+    if extra_vars is None:
+        return {prefix: [] for prefix in reco_prefixes}
+    if isinstance(extra_vars, dict):
+        normalized = {}
+        for prefix in reco_prefixes:
+            value = extra_vars.get(prefix, [])
+            if value is None:
+                normalized[prefix] = []
+            elif isinstance(value, (list, tuple)):
+                normalized[prefix] = list(value)
+            else:
+                normalized[prefix] = [str(value)]
+        return normalized
+    if isinstance(extra_vars, (list, tuple)):
+        return {prefix: list(extra_vars) for prefix in reco_prefixes}
+    if isinstance(extra_vars, str):
+        return {prefix: [extra_vars] for prefix in reco_prefixes}
+    raise TypeError(f"Unsupported extra_vars format: {type(extra_vars)}")
 
 def match_reco_truth(
     files,
@@ -298,20 +355,22 @@ def match_reco_truth(
     phi_name="phi",
     dr_max=0.2,
     tree_name="ntuple",
-    extra_vars=[],
+    extra_vars=None,
     step_size=10000,
 ):
 
     if pt_reco_names is None:
         pt_reco_names=["pt"]*len(reco_prefixes)
     
+    extra_vars_by_prefix = _normalize_extra_vars(reco_prefixes, extra_vars)
+
     reco_branches = {}
-    for i,reco_prefix in enumerate(reco_prefixes)}
-        reco_branches[reco_prefix]=[
+    for i, reco_prefix in enumerate(reco_prefixes):
+        reco_branches[reco_prefix] = [
             f"{reco_prefix}_{pt_reco_names[i]}",
             f"{reco_prefix}_{eta_name}",
             f"{reco_prefix}_{phi_name}",
-        ] + [f"{reco_prefix}_{extra_var}" for extra_var in extra_vars]
+        ] + [f"{reco_prefix}_{extra_var}" for extra_var in extra_vars_by_prefix[reco_prefix]]
 
     truth_branches = [
         f"{truth_prefix}_{pt_truth_name}{truth_suffix}",
@@ -333,6 +392,10 @@ def match_reco_truth(
     truth_pts = {reco_prefix:[] for reco_prefix in reco_prefixes}
     truth_etas = {reco_prefix:[] for reco_prefix in reco_prefixes}
     truth_phis = {reco_prefix:[] for reco_prefix in reco_prefixes}
+    reco_extras = {
+        reco_prefix: {extra_name: [] for extra_name in extra_vars_by_prefix[reco_prefix]}
+        for reco_prefix in reco_prefixes
+    }
 
     def process_file(filename, weight):
         with uproot.open(filename) as ftmp:
@@ -352,17 +415,32 @@ def match_reco_truth(
         file_rhos = []
 
         for chunk in tqdm(it, total=total_chunks, desc=f"{filename}"):
-            for name in [reco_branches[r][0] for r in reco_branches]+truth_branches[:1]:
+            for name in [reco_branches[r][0] for r in reco_branches] + truth_branches[:1]:
                 chunk = ak.with_field(chunk, ak.values_astype(chunk[name] / 1000.0, np.float32), name) # convert to GeV
-            for name in [reco_branches[r][1] for r in reco_branches]+truth_branches[1:2]:
+            for name in [reco_branches[r][1] for r in reco_branches] + truth_branches[1:2]:
                 chunk = ak.with_field(chunk, ak.values_astype(chunk[name], np.float32), name)
-            for name in [reco_branches[r][2] for r in reco_branches]+truth_branches[2:]:
+            for name in [reco_branches[r][2] for r in reco_branches] + truth_branches[2:]:
+                chunk = ak.with_field(chunk, ak.values_astype(chunk[name], np.float32), name)
+            for name in [
+                extra_branch
+                for reco_prefix in reco_prefixes
+                for extra_branch in reco_branches[reco_prefix][3:]
+            ]:
                 chunk = ak.with_field(chunk, ak.values_astype(chunk[name], np.float32), name)
             n_events_chunk = len(chunk[reco_branches[reco_prefixes[0]][0]])
             # Process entire chunk at once
             results = match_chunk_vectorized(
-                chunk, reco_prefixes, reco_branches, truth_branches, dr_max,
-                reco_iso_dr, truth_iso_dr, reco_pt_min, truth_pt_min, pt_min
+                chunk,
+                reco_prefixes,
+                reco_branches,
+                truth_branches,
+                dr_max,
+                reco_iso_dr,
+                truth_iso_dr,
+                reco_pt_min,
+                truth_pt_min,
+                pt_min,
+                extra_vars_by_prefix,
             )
 
             # Append results (now as awkward arrays)
@@ -378,6 +456,8 @@ def match_reco_truth(
                 truth_pts[reco_prefix].append(results['truth_pt'][reco_prefix])
                 truth_etas[reco_prefix].append(results['truth_eta'][reco_prefix])
                 truth_phis[reco_prefix].append(results['truth_phi'][reco_prefix])
+                for extra_name, extra_values in results['reco_extra'][reco_prefix].items():
+                    reco_extras[reco_prefix][extra_name].append(extra_values)
 
             event_offset += n_events_chunk
             
@@ -398,21 +478,28 @@ def match_reco_truth(
         process_file(f,weights[i])
         
     # Convert everything to an awkward record-of-lists
-    return {reco_prefix:ak.zip(
-        {
-            "event": ak.Array(event_ids),
-            "weight": ak.Array(event_weights),
-            "rho": ak.fill_none(ak.pad_none(event_rhos, 3, axis=-1, clip=True), 0., axis=-1), # TODO: why is this necessary for zprime?
-            #"reco_pt": ak.Array(reco_pts[reco_prefix]), # old implementation
-            "reco_pt": ak.concatenate(reco_pts[reco_prefix]),
-            "reco_eta": ak.concatenate(reco_etas[reco_prefix]),
-            "reco_phi": ak.concatenate(reco_phis[reco_prefix]),
-            "truth_pt": ak.concatenate(truth_pts[reco_prefix]),
-            "truth_eta": ak.concatenate(truth_etas[reco_prefix]),
-            "truth_phi": ak.concatenate(truth_phis[reco_prefix]),
-        },
-        depth_limit=1
-    ) for reco_prefix in reco_prefixes}
+    return {
+        reco_prefix: ak.zip(
+            {
+                "event": ak.Array(event_ids),
+                "weight": ak.Array(event_weights),
+                "rho": ak.fill_none(ak.pad_none(event_rhos, 3, axis=-1, clip=True), 0., axis=-1), # TODO: why is this necessary for zprime?
+                #"reco_pt": ak.Array(reco_pts[reco_prefix]), # old implementation
+                "reco_pt": ak.concatenate(reco_pts[reco_prefix]),
+                "reco_eta": ak.concatenate(reco_etas[reco_prefix]),
+                "reco_phi": ak.concatenate(reco_phis[reco_prefix]),
+                "truth_pt": ak.concatenate(truth_pts[reco_prefix]),
+                "truth_eta": ak.concatenate(truth_etas[reco_prefix]),
+                "truth_phi": ak.concatenate(truth_phis[reco_prefix]),
+                **{
+                    f"reco_{extra_name}": ak.concatenate(reco_extras[reco_prefix][extra_name])
+                    for extra_name in extra_vars_by_prefix[reco_prefix]
+                },
+            },
+            depth_limit=1,
+        )
+        for reco_prefix in reco_prefixes
+    }
 
 
 def select_kth(arr, field, sorton, k):
