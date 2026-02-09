@@ -60,7 +60,9 @@ truth_pt_min: 20.0
 pt_min: 5.0
 reco_iso_dr: 0.4
 truth_iso_dr: 0.6
-extra_vars: []
+extra_vars:
+  AntiKt4GEPCellsE6LSB40G4TowerAlgJets: ["em_frac", "timing"]
+  L1_jFexSRJetRoI: ["quality"]
 ```
 
 ### Supported selector names

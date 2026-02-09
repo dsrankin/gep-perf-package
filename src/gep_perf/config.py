@@ -80,6 +80,27 @@ def _parse_selectors(obj: Any):
     return sels, labels
 
 
+def _normalize_extra_vars(obj: Any, reco_prefixes: List[str]) -> Dict[str, List[str]]:
+    if obj is None:
+        return {prefix: [] for prefix in reco_prefixes}
+    if isinstance(obj, dict):
+        normalized: Dict[str, List[str]] = {}
+        for prefix in reco_prefixes:
+            value = obj.get(prefix, [])
+            if value is None:
+                normalized[prefix] = []
+            elif isinstance(value, (list, tuple)):
+                normalized[prefix] = list(value)
+            else:
+                normalized[prefix] = [str(value)]
+        return normalized
+    if isinstance(obj, (list, tuple)):
+        return {prefix: list(obj) for prefix in reco_prefixes}
+    if isinstance(obj, str):
+        return {prefix: [obj] for prefix in reco_prefixes}
+    raise TypeError(f"Unsupported extra_vars format: {type(obj)}")
+
+
 def load_run_config(path: str | Path) -> RunConfig:
     path = Path(path)
     data: Dict[str, Any] = yaml.safe_load(path.read_text())
@@ -99,13 +120,18 @@ def load_run_config(path: str | Path) -> RunConfig:
 
     # default empty dicts/lists
     data.setdefault("match_dict", {})
-    data.setdefault("extra_vars", [])
+    data.setdefault("extra_vars", {})
     data.setdefault("truth_suffix", "")
 
     # Some YAML authors may provide scalars where lists are expected
     for k in ["signal_files", "background_files", "background_weights", "reco_prefixes", "nobjs", "rates", "triggers"]:
         if k in data and not isinstance(data[k], list):
             data[k] = [data[k]]
+
+    data["extra_vars"] = _normalize_extra_vars(
+        data.get("extra_vars"),
+        data.get("reco_prefixes", []),
+    )
 
     cfg = RunConfig(**data)
     return cfg
