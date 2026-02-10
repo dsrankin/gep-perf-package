@@ -47,6 +47,9 @@ class RunConfig:
     rates: list[float]
     triggers :list[list[float]]
     extra_vars: dict[str, list[str]]
+    turnon_vars: list[Callable[[ak.Array, int], ak.Array]]
+    turnon_var_labels: list[str]
+    turnon_bins: list[np.ndarray]
     tree: str = "ntuple"
     dr_max: float = 0.2
     reco_pt_min: float = 10.
@@ -64,6 +67,10 @@ class RunConfig:
             raise ValueError(f"Number of selectors ({len(self.sels)}) and selector labels ({len(self.sel_labels)}) must be the same length")
         if len(self.nobjs)!=len(self.triggers):
             raise ValueError(f"Number of objects ({len(self.nobjs)}) and triggers ({len(self.triggers)}) must be the same length")
+        if len(self.turnon_vars)!=len(self.turnon_var_labels):
+            raise ValueError(f"Number of turn-on variables ({len(self.turnon_vars)}) and labels ({len(self.turnon_var_labels)}) must be the same length")
+        if len(self.turnon_vars)!=len(self.turnon_bins):
+            raise ValueError(f"Number of turn-on variables ({len(self.turnon_vars)}) and bins ({len(self.turnon_bins)}) must be the same length")
 
 @dataclass
 class RunResult:
@@ -86,6 +93,8 @@ class RunResult:
     response_corr: dict
     resol_uncorr: dict
     resol_corr: dict
+    turnon_label: str
+    turnon_bins: np.ndarray
 
 def delta_phi(phi1,phi2):
     dphi = phi1-phi2
@@ -830,9 +839,10 @@ def teff(num, den, sumw2_num=None, sumw2_den=None, alpha=0.682689492137086):
 def compute_signal_efficiency(
     sig_pairs,
     threshold,
-    truth_pt_bins,
+    turnon_bins,
     nobj,
     selector,
+    turnon_values=None,
     weights=False,
     inclusive=False,
     correctors=None,
@@ -849,8 +859,8 @@ def compute_signal_efficiency(
     threshold : float
         Reco-pt threshold. An event "passes" if reco_pt > threshold by default.
         Use inclusive=True to treat reco_pt >= threshold as passing.
-    truth_pt_bins : array_like
-        Bin edges for truth-pt (e.g. np.linspace(0,2000,41)).
+    turnon_bins : array_like
+        Bin edges for the turn-on variable (e.g. np.linspace(0,2000,41)).
     weights : bool
         Use weights.
     inclusive : bool
@@ -870,9 +880,9 @@ def compute_signal_efficiency(
         Approximate 1-sigma uncertainty on the efficiency in each bin.
     """
     if sig_pairs is None or len(sig_pairs) == 0:
-        nbins = len(truth_pt_bins) - 1
+        nbins = len(turnon_bins) - 1
         return (
-            0.5 * (truth_pt_bins[:-1] + truth_pt_bins[1:]),
+            0.5 * (turnon_bins[:-1] + turnon_bins[1:]),
             np.zeros(nbins, dtype=float),
             np.zeros(nbins, dtype=float),
             np.zeros(nbins, dtype=float),
@@ -886,23 +896,24 @@ def compute_signal_efficiency(
                 
 
     reco_pt, reco_eta = select_kths(sig_pairs, ["reco_pt","reco_eta"], "reco_pt", nobj)
-    truth_pt = select_kth(sig_pairs, "truth_pt", "truth_pt", nobj)
+    if turnon_values is None:
+        turnon_values = select_kth(sig_pairs, "truth_pt", "truth_pt", nobj)
 
 
     esel = selector(sig_pairs)
     reco_pt = reco_pt[esel]
     reco_eta = reco_eta[esel]
-    truth_pt = truth_pt[esel]
+    turnon_values = turnon_values[esel]
     w = ak.to_numpy(sig_pairs["weight"])[esel]
 
     if not weights:
         # Unweighted histograms
-        total_counts, edges = np.histogram(truth_pt, bins=truth_pt_bins)
+        total_counts, edges = np.histogram(turnon_values, bins=turnon_bins)
         if inclusive:
             passed_mask = (reco_pt >= threshold)
         else:
             passed_mask = (reco_pt > threshold)
-        passed_counts, _ = np.histogram(truth_pt[passed_mask], bins=truth_pt_bins)
+        passed_counts, _ = np.histogram(turnon_values[passed_mask], bins=turnon_bins)
 
         efficiency, errlo, errhi = teff(passed_counts, total_counts)
 
@@ -911,12 +922,12 @@ def compute_signal_efficiency(
         w_pass = w[passed_mask]
 
         # sum of weights
-        total_w, _ = np.histogram(truth_pt, bins=truth_pt_bins, weights=w)
-        passed_w, _ = np.histogram(truth_pt[passed_mask], bins=truth_pt_bins, weights=w_pass)
+        total_w, _ = np.histogram(turnon_values, bins=turnon_bins, weights=w)
+        passed_w, _ = np.histogram(turnon_values[passed_mask], bins=turnon_bins, weights=w_pass)
 
         # sum of squared weights (for effective counts)
-        total_w2, _ = np.histogram(truth_pt, bins=truth_pt_bins, weights=w * w)
-        passed_w2, _ = np.histogram(truth_pt[passed_mask], bins=truth_pt_bins, weights=w_pass * w_pass)
+        total_w2, _ = np.histogram(turnon_values, bins=turnon_bins, weights=w * w)
+        passed_w2, _ = np.histogram(turnon_values[passed_mask], bins=turnon_bins, weights=w_pass * w_pass)
 
         efficiency, errlo, errhi = teff(
             passed_w,
@@ -1702,48 +1713,25 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
             threshold,actual_eff = compute_pt_threshold(bkg_pairs[reco_prefix], rate_eff, config.nobjs[n]) #in kHz
             print(f"For {reco_prefix}, n={config.nobjs[n]}, target rate efficiency of {rate_eff:.6f}, threshold of {threshold:.6f} gives actual rate efficiency of {actual_eff:.6f}")
 
-            for s in range(len(config.sels)):
-                # Signal efficiency vs truth-pt
-                centers, eff, _,_, err = compute_signal_efficiency(
-                    sig_pairs[reco_prefix], threshold, config.truth_pt_bins, config.nobjs[n], config.sels[s]
-                )
-                
-                full_sig_eff, full_sig_err = compute_full_efficiency(sig_pairs[reco_prefix], config.truth_pt_bins, config.nobjs[n], config.sels[s], weights=False)
-                full_bkg_eff, full_bkg_err = compute_full_efficiency(bkg_pairs[reco_prefix], config.truth_pt_bins, config.nobjs[n], config.sels[s], weights=True)
-
-                results.append(
-                    RunResult(
-                        name=config.name,
-                        sel_label=config.sel_labels[s],
-                        reco=reco_prefix,
-                        nobj=config.nobjs[n],
-                        fixrate=True,
-                        threshold=threshold,
-                        rate=config.rates[n],
-                        truth_pt_bins=config.truth_pt_bins,
-                        truth_eta_bins=config.truth_eta_bins,
-                        signal_efficiency=eff,
-                        signal_efficiency_error=err,
-                        full_sig_efficiency=full_sig_eff,
-                        full_sig_efficiency_error=full_sig_err,
-                        full_bkg_efficiency=full_bkg_eff,
-                        full_bkg_efficiency_error=full_bkg_err,
-                        response_uncorr=response_uncorr,
-                        response_corr=response_corr,
-                        resol_uncorr=resol_uncorr,
-                        resol_corr=resol_corr,
-                    )
-                )
-                
-                
-            for threshold in config.triggers[n]:
-                rate, actual_eff = compute_rate(bkg_pairs[reco_prefix], threshold, config.nobjs[n])
-                print(f"For {reco_prefix}, n={config.nobjs[n]}, trigger threshold of {threshold:.1f} gives actual rate efficiency of {actual_eff:.6f} (rate {rate:.6f} kHz)")
+            for turnon_fn, turnon_label, turnon_bins in zip(
+                config.turnon_vars,
+                config.turnon_var_labels,
+                config.turnon_bins,
+            ):
+                turnon_values = turnon_fn(sig_pairs[reco_prefix], config.nobjs[n])
                 for s in range(len(config.sels)):
-                    # Signal efficiency vs truth-pt
+                    # Signal efficiency vs turn-on variable
                     centers, eff, _,_, err = compute_signal_efficiency(
-                        sig_pairs[reco_prefix], threshold, config.truth_pt_bins, config.nobjs[n], config.sels[s]
+                        sig_pairs[reco_prefix],
+                        threshold,
+                        turnon_bins,
+                        config.nobjs[n],
+                        config.sels[s],
+                        turnon_values=turnon_values,
                     )
+                    
+                    full_sig_eff, full_sig_err = compute_full_efficiency(sig_pairs[reco_prefix], config.truth_pt_bins, config.nobjs[n], config.sels[s], weights=False)
+                    full_bkg_eff, full_bkg_err = compute_full_efficiency(bkg_pairs[reco_prefix], config.truth_pt_bins, config.nobjs[n], config.sels[s], weights=True)
 
                     results.append(
                         RunResult(
@@ -1751,9 +1739,9 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
                             sel_label=config.sel_labels[s],
                             reco=reco_prefix,
                             nobj=config.nobjs[n],
-                            fixrate=False,
+                            fixrate=True,
                             threshold=threshold,
-                            rate=rate,
+                            rate=config.rates[n],
                             truth_pt_bins=config.truth_pt_bins,
                             truth_eta_bins=config.truth_eta_bins,
                             signal_efficiency=eff,
@@ -1766,8 +1754,57 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
                             response_corr=response_corr,
                             resol_uncorr=resol_uncorr,
                             resol_corr=resol_corr,
+                            turnon_label=turnon_label,
+                            turnon_bins=turnon_bins,
                         )
                     )
+                
+                
+            for threshold in config.triggers[n]:
+                rate, actual_eff = compute_rate(bkg_pairs[reco_prefix], threshold, config.nobjs[n])
+                print(f"For {reco_prefix}, n={config.nobjs[n]}, trigger threshold of {threshold:.1f} gives actual rate efficiency of {actual_eff:.6f} (rate {rate:.6f} kHz)")
+                for turnon_fn, turnon_label, turnon_bins in zip(
+                    config.turnon_vars,
+                    config.turnon_var_labels,
+                    config.turnon_bins,
+                ):
+                    turnon_values = turnon_fn(sig_pairs[reco_prefix], config.nobjs[n])
+                    for s in range(len(config.sels)):
+                        # Signal efficiency vs turn-on variable
+                        centers, eff, _,_, err = compute_signal_efficiency(
+                            sig_pairs[reco_prefix],
+                            threshold,
+                            turnon_bins,
+                            config.nobjs[n],
+                            config.sels[s],
+                            turnon_values=turnon_values,
+                        )
+
+                        results.append(
+                            RunResult(
+                                name=config.name,
+                                sel_label=config.sel_labels[s],
+                                reco=reco_prefix,
+                                nobj=config.nobjs[n],
+                                fixrate=False,
+                                threshold=threshold,
+                                rate=rate,
+                                truth_pt_bins=config.truth_pt_bins,
+                                truth_eta_bins=config.truth_eta_bins,
+                                signal_efficiency=eff,
+                                signal_efficiency_error=err,
+                                full_sig_efficiency=full_sig_eff,
+                                full_sig_efficiency_error=full_sig_err,
+                                full_bkg_efficiency=full_bkg_eff,
+                                full_bkg_efficiency_error=full_bkg_err,
+                                response_uncorr=response_uncorr,
+                                response_corr=response_corr,
+                                resol_uncorr=resol_uncorr,
+                                resol_corr=resol_corr,
+                                turnon_label=turnon_label,
+                                turnon_bins=turnon_bins,
+                            )
+                        )
                 
         if debug: 
             for var in ["reco_pt","reco_eta","truth_pt","truth_eta"]:
@@ -1853,10 +1890,14 @@ def save_run_result(result: RunResult, path):
         response_corr=np.array(result.response_corr, dtype=object),
         resol_uncorr=np.array(result.resol_uncorr, dtype=object),
         resol_corr=np.array(result.resol_corr, dtype=object),
+        turnon_label=result.turnon_label,
+        turnon_bins=result.turnon_bins,
     )
 
 def load_run_result(path):
     data = np.load(path, allow_pickle=True)
+    turnon_label = data["turnon_label"].item() if "turnon_label" in data else "truth_pt"
+    turnon_bins = data["turnon_bins"] if "turnon_bins" in data else data["truth_pt_bins"]
     return RunResult(
         name=data["name"].item(),
         reco=data["reco"].item(),
@@ -1877,6 +1918,8 @@ def load_run_result(path):
         response_corr=data["response_corr"],
         resol_uncorr=data["resol_uncorr"],
         resol_corr=data["resol_corr"],
+        turnon_label=turnon_label,
+        turnon_bins=turnon_bins,
     )
 
 import scipy.optimize as opt
@@ -1912,14 +1955,16 @@ def overlay_efficiency(results, suffix="", titletxt="", nobj=1, xmax=-1., noerr=
     
     params = {}
     for i,r in enumerate(results):
-        pt_centers = 0.5*(r.truth_pt_bins[:-1]+r.truth_pt_bins[1:])
-        xmask = (pt_centers < xmax) if xmax>0. else np.ones(len(pt_centers))
-        params[i],_ = fit_logistic(pt_centers[xmask], r.signal_efficiency[xmask], np.mean(r.signal_efficiency_error,axis=0)[xmask])
+        turnon_bins = getattr(r, "turnon_bins", r.truth_pt_bins)
+        turnon_label = getattr(r, "turnon_label", "Truth $p_T$ [GeV]")
+        turnon_centers = 0.5*(turnon_bins[:-1]+turnon_bins[1:])
+        xmask = (turnon_centers < xmax) if xmax>0. else np.ones(len(turnon_centers))
+        params[i],_ = fit_logistic(turnon_centers[xmask], r.signal_efficiency[xmask], np.mean(r.signal_efficiency_error,axis=0)[xmask])
         label_full = r.reco+", "+r.name+r' [$p_T$>'+('%.1f'%r.threshold)+'] ($\\sigma$='+('%.2f'%(1./params[i][1]))+', $p_T^{98\\%}$='+('%.2f'%(params[i][2]+np.log(49)/params[i][1]))+')'
-        plt.errorbar(pt_centers[xmask], r.signal_efficiency[xmask], None if noerr else r.signal_efficiency_error[:,xmask], marker='s', label=label_full, color='C%i'%i, capsize=3, capthick=2, linestyle='none', mfc='none', alpha=0.5, markersize=4)
-        plt.plot(pt_centers[xmask], logistic_function(pt_centers[xmask],*params[i]), color='C%i'%i, linestyle='dashed')
+        plt.errorbar(turnon_centers[xmask], r.signal_efficiency[xmask], None if noerr else r.signal_efficiency_error[:,xmask], marker='s', label=label_full, color='C%i'%i, capsize=3, capthick=2, linestyle='none', mfc='none', alpha=0.5, markersize=4)
+        plt.plot(turnon_centers[xmask], logistic_function(turnon_centers[xmask],*params[i]), color='C%i'%i, linestyle='dashed')
 
-    plt.xlabel(r"%s Truth $p_T$ [GeV]"%numtext[nobj])
+    plt.xlabel(r"%s %s"%(numtext[nobj], turnon_label))
     plt.ylabel("Signal efficiency")
     plt.legend(bbox_to_anchor=(1.05, 1),title=titletxt)
     plt.grid(True)
@@ -1928,12 +1973,13 @@ def overlay_efficiency(results, suffix="", titletxt="", nobj=1, xmax=-1., noerr=
     plt.clf()
 
     for i,r in enumerate(results):
-        pt_centers = 0.5*(r.truth_pt_bins[:-1]+r.truth_pt_bins[1:])
-        shiftmask = pt_centers < (params[i][2]+3.*np.log(49)/params[i][1]) # 2x the shift from 50 to 98 to make sure its visible
-        params_adj,_ = fit_logistic(pt_centers[shiftmask]-(params[i][2]+np.log(49)/params[i][1]), r.signal_efficiency[shiftmask], np.mean(r.signal_efficiency_error,axis=0)[shiftmask])
+        turnon_bins = getattr(r, "turnon_bins", r.truth_pt_bins)
+        turnon_centers = 0.5*(turnon_bins[:-1]+turnon_bins[1:])
+        shiftmask = turnon_centers < (params[i][2]+3.*np.log(49)/params[i][1]) # 2x the shift from 50 to 98 to make sure its visible
+        params_adj,_ = fit_logistic(turnon_centers[shiftmask]-(params[i][2]+np.log(49)/params[i][1]), r.signal_efficiency[shiftmask], np.mean(r.signal_efficiency_error,axis=0)[shiftmask])
         label_full = r.reco+", "+r.name+r' [$p_T$>'+('%.1f'%r.threshold)+'] ($\\hat{\\sigma}$='+('%.2f'%(1./params_adj[1]))+', $\\hat{p}_T^{98\\%}$='+('%.2f'%(params_adj[2]+np.log(49)/params_adj[1]))+')'
-        plt.errorbar(pt_centers[shiftmask]-(params[i][2]+np.log(49)/params[i][1]), r.signal_efficiency[shiftmask], None if noerr else r.signal_efficiency_error[:,shiftmask], marker='s', label=label_full, color='C%i'%i, capsize=3, capthick=2, linestyle='none', mfc='none', alpha=0.5, markersize=4)
-        plt.plot(pt_centers[shiftmask]-(params[i][2]+np.log(49)/params[i][1]), logistic_function(pt_centers[shiftmask]-(params[i][2]+np.log(49)/params[i][1]),*params_adj), color='C%i'%i, linestyle='dashed')
+        plt.errorbar(turnon_centers[shiftmask]-(params[i][2]+np.log(49)/params[i][1]), r.signal_efficiency[shiftmask], None if noerr else r.signal_efficiency_error[:,shiftmask], marker='s', label=label_full, color='C%i'%i, capsize=3, capthick=2, linestyle='none', mfc='none', alpha=0.5, markersize=4)
+        plt.plot(turnon_centers[shiftmask]-(params[i][2]+np.log(49)/params[i][1]), logistic_function(turnon_centers[shiftmask]-(params[i][2]+np.log(49)/params[i][1]),*params_adj), color='C%i'%i, linestyle='dashed')
 
     plt.xlabel(r"%s Truth $\Delta p_T$ [GeV]"%numtext[nobj])
     plt.ylabel("Signal efficiency")
@@ -2263,5 +2309,45 @@ def hh_mass_window_selector(pairs, m_min=75., m_max=175., coll='reco', debug=0, 
         del has4, pass_evt
 
     return event_sel
+
+# turn-on variable functions
+def truth_pt_turnon_var(pairs, nobj):
+    return select_kth(pairs, "truth_pt", "truth_pt", nobj)
+
+def dijet_mass_turnon_var(pairs, nobj, pt_min=0.0, coll="truth"):
+    pt = pairs[f"{coll}_pt"]
+    eta = pairs[f"{coll}_eta"]
+    phi = pairs[f"{coll}_phi"]
+
+    if pt_min is None:
+        pt_min = 0.0
+
+    valid = pt > pt_min
+    pt = pt[valid]
+    eta = eta[valid]
+    phi = phi[valid]
+
+    combos = ak.combinations(pt, 2, axis=1)
+    eta_pairs = ak.combinations(eta, 2, axis=1)
+    phi_pairs = ak.combinations(phi, 2, axis=1)
+
+    pt1 = combos["0"]
+    pt2 = combos["1"]
+    eta1 = eta_pairs["0"]
+    eta2 = eta_pairs["1"]
+    phi1 = phi_pairs["0"]
+    phi2 = phi_pairs["1"]
+
+    deta = eta1 - eta2
+    dphi = ak.where(phi1 - phi2 > np.pi, phi1 - phi2 - 2 * np.pi, phi1 - phi2)
+    dphi = ak.where(dphi < -np.pi, dphi + 2 * np.pi, dphi)
+    m2 = 2.0 * pt1 * pt2 * (np.cosh(deta) - np.cos(dphi))
+    mass = ak.sqrt(m2)
+
+    abs_deta = ak.abs(deta)
+    max_idx = ak.argmax(abs_deta, axis=1, keepdims=True)
+    mass_max = ak.flatten(mass[max_idx], axis=1)
+
+    return ak.fill_none(mass_max, np.nan)
 
 base_dir = '/eos/home-d/drankin/GEPEnc/'
