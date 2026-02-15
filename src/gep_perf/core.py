@@ -306,7 +306,7 @@ def match_reco_truth(
         pt_reco_names=["pt"]*len(reco_prefixes)
     
     reco_branches = {}
-    for i,reco_prefix in enumerate(reco_prefixes)}
+    for i,reco_prefix in enumerate(reco_prefixes):
         reco_branches[reco_prefix]=[
             f"{reco_prefix}_{pt_reco_names[i]}",
             f"{reco_prefix}_{eta_name}",
@@ -1345,8 +1345,8 @@ class ResponseInterpolator:
                     fill_value=(R[valid][0], R[valid][-1])
                 )
                 self.interpolators.append(f)
-                plt.plot(np.log(reco_centers[i_eta]),
-                         f(np.log(reco_centers[i_eta])),
+                plt.plot(x,
+                         f(x),
                          color='C%i'%i_eta, 
                          label=r"$%.2f<\eta<%.2f$"%(eta_bins[i_eta],eta_bins[i_eta+1])
                         )
