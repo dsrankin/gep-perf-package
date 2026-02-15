@@ -1,13 +1,13 @@
 name: Jet
 signal_files:
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_encfex_hhbbbb_feb05_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_hhbbbb_feb14_EXT0/outputGEPNtuple.root
 background_files:
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_encfex_jz0_feb05_EXT0/outputGEPNtuple.root
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_encfex_jz1_feb05_EXT0/outputGEPNtuple.root
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_encfex_jz2_feb05_EXT0/outputGEPNtuple.root
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_encfex_jz3_feb05_EXT0/outputGEPNtuple.root
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_encfex_jz4_feb05_EXT0/outputGEPNtuple.root
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_encfex_jz5_feb05_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz0_feb14_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz1_feb14_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz2_feb14_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz3_feb14_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz4_feb14_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz5_feb14_EXT0/outputGEPNtuple.root
 background_weights:
 - 76.66268004
 - 3.656677112
@@ -16,10 +16,10 @@ background_weights:
 - 0.0
 - 0.0
 reco_prefixes:
-- AntiKt4GEPCellsE6LSB40G4TowerAlgJets
-- AntiKt4GEPCellsE6LSB80G4TowerAlgJets
-- AntiKt4GEPCellsE10LSB40G4TowerAlgJets
-- AntiKt4GEPCellsE10LSB80G4TowerAlgJets
+- AntiKt4GepCellsE6LSB40G4SIG2TowerAlgJets
+- AntiKt4GepCellsE6LSB80G4SIG2TowerAlgJets
+- AntiKt4GepCellsE6LSB40G4SIG4TowerAlgJets
+- AntiKt4GepCellsE6LSB80G4SIG4TowerAlgJets
 - L1_jFexSRJetRoI
 - AntiKt4CaloTopoClusters422AlgJets
 - AntiKt4CaloTopoClusters422SKJets
