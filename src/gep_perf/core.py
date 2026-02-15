@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 vector.register_awkward()
 
 from dataclasses import dataclass, replace
-from typing import Callable
+from typing import Callable, Optional
 
 import os
 
@@ -35,7 +35,7 @@ class RunConfig:
     background_files: list[str]
     background_weights: list[float]
     reco_prefixes: list[str]
-    reco_labels: list[str] | None
+    reco_labels: Optional[list[str]]
     truth_prefix: str
     truth_suffix: str
     match_dict: dict
