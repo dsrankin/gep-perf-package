@@ -1,26 +1,26 @@
-name: Ele
+name: Tau
 signal_files:
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_zee_feb14_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_ytt_feb14_EXT0/outputGEPNtuple.root
 background_files:
 - /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz0_feb14_EXT0/outputGEPNtuple.root
 - /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz1_feb14_EXT0/outputGEPNtuple.root
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_zee_feb14_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_ytt_feb14_EXT0/outputGEPNtuple.root
 background_weights:
 - 76.66268004
 - 3.656677112
 - 0.0
 reco_prefixes:
-- AntiKt4GepCellsE6LSB40G4SIG2TowerAlgJets
-- AntiKt4GepCellsE6LSB80G4SIG2TowerAlgJets
-- AntiKt4GepCellsE6LSB40G4SIG4TowerAlgJets
-- AntiKt4GepCellsE6LSB80G4SIG4TowerAlgJets
+- AntiKt1GepCellsE6LSB40G4SIG2TowerAlgJets
+- AntiKt1GepCellsE6LSB80G4SIG2TowerAlgJets
+- AntiKt1GepCellsE6LSB40G4SIG4TowerAlgJets
+- AntiKt1GepCellsE6LSB80G4SIG4TowerAlgJets
 - L1_eTauRoISim
-- L1_eEMRoISim
-- AntiKt4CaloTopoClusters422AlgJets
-- AntiKt4CaloTopoClusters422SKJets
-- AntiKt4OfflineCellsTowerAlgJets
-truth_prefix: truth_electrons
-truth_suffix: ''
+- L1_jFexSRJetRoI
+- AntiKt1CaloTopoClusters422AlgJets
+- AntiKt1OfflineCellsTowerAlgJets
+- AntiKt3OfflineCellsTowerAlgJets
+truth_prefix: truth_tau
+truth_suffix: _vis
 match_dict:
   pt_reco_names:
   - pt
@@ -28,34 +28,22 @@ match_dict:
   - pt
   - pt
   - et
+  - et
   - pt
   - pt
   - pt
 reco_pt_min: 5.0
 truth_pt_min: 10.0
-pt_min: 5.0
+pt_min: 2.0
 reco_iso_dr: 0.4
-truth_iso_dr: 0.6
+truth_iso_dr: 0.4
 nobjs:
 - 1
 - 2
 selectors:
 - name: null_selector
   label: ''
-- name: eratio_selector
-  label: _eratio
-  kwargs:
-    threshold: 0.7
 truth_pt_bins:
-- 1.0
-- 2.0
-- 3.0
-- 4.0
-- 5.0
-- 6.0
-- 7.0
-- 8.0
-- 9.0
 - 10.0
 - 12.0
 - 14.0
@@ -102,6 +90,36 @@ truth_pt_bins:
 - 96.0
 - 98.0
 - 100.0
+- 105.0
+- 110.0
+- 115.0
+- 120.0
+- 125.0
+- 130.0
+- 135.0
+- 140.0
+- 145.0
+- 150.0
+- 155.0
+- 160.0
+- 165.0
+- 170.0
+- 175.0
+- 180.0
+- 185.0
+- 190.0
+- 195.0
+- 200.0
+- 210.0
+- 220.0
+- 230.0
+- 240.0
+- 250.0
+- 260.0
+- 270.0
+- 280.0
+- 290.0
+- 300.0
 truth_eta_bins:
 - -4.9
 - -3.2
@@ -116,15 +134,15 @@ truth_eta_bins:
 - 2.5
 - 3.2
 - 4.9
-do_rho_sub: true
+do_rho_sub: false
 rates:
-- 50.0
-- 50.0
+- 10.0
+- 200.0
 triggers:
-- - 20.0
-  - 30.0
-- - 10.0
-  - 20.0
-extra_vars: ['eRatio']
+- - 100.0
+  - 150.0
+- - 30.0
+  - 40.0
+extra_vars: []
 tree: ntuple
 dr_max: 0.2

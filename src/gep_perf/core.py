@@ -1453,8 +1453,8 @@ class ResponseInterpolator:
                     fill_value=(R[valid][0], R[valid][-1])
                 )
                 self.interpolators.append(f)
-                plt.plot(np.log(reco_centers[i_eta]),
-                         f(np.log(reco_centers[i_eta])),
+                plt.plot(x,
+                         f(x),
                          color='C%i'%i_eta, 
                          label=r"$%.2f<\eta<%.2f$"%(eta_bins[i_eta],eta_bins[i_eta+1])
                         )
