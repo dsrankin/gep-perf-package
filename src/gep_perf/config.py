@@ -8,7 +8,14 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import yaml
 
-from .core import RunConfig, null_selector, boosted_truth_selector, hh_mass_window_selector
+from .core import (
+    RunConfig,
+    null_selector,
+    boosted_truth_selector,
+    hh_mass_window_selector,
+    truth_pt_turnon_var,
+    dijet_mass_turnon_var,
+)
 
 
 # Selector registry for YAML -> callable resolution
@@ -16,6 +23,12 @@ SELECTORS = {
     "null_selector": null_selector,
     "boosted_truth_selector": boosted_truth_selector,
     "hh_mass_window_selector": hh_mass_window_selector,
+}
+
+# Turn-on variable registry for YAML -> callable resolution
+TURNON_VARIABLES = {
+    "truth_pt": truth_pt_turnon_var,
+    "dijet_mass": dijet_mass_turnon_var,
 }
 
 
@@ -80,6 +93,86 @@ def _parse_selectors(obj: Any):
     return sels, labels
 
 
+def _normalize_extra_vars(obj: Any, reco_prefixes: List[str]) -> Dict[str, List[str]]:
+    if obj is None:
+        return {prefix: [] for prefix in reco_prefixes}
+    if isinstance(obj, dict):
+        normalized: Dict[str, List[str]] = {}
+        for prefix in reco_prefixes:
+            value = obj.get(prefix, [])
+            if value is None:
+                normalized[prefix] = []
+            elif isinstance(value, (list, tuple)):
+                normalized[prefix] = list(value)
+            else:
+                normalized[prefix] = [str(value)]
+        return normalized
+    if isinstance(obj, (list, tuple)):
+        return {prefix: list(obj) for prefix in reco_prefixes}
+    if isinstance(obj, str):
+        return {prefix: [obj] for prefix in reco_prefixes}
+    raise TypeError(f"Unsupported extra_vars format: {type(obj)}")
+
+def _parse_turnon_vars(obj: Any, bins_lookup: Dict[str, np.ndarray]):
+    """
+    YAML format:
+      turnon_variables:
+        - name: truth_pt
+          label: Truth $p_T$ [GeV]
+          bins: truth_pt_bins
+        - name: dijet_mass
+          label: Truth $m_{jj}$ [GeV]
+          bins: {start: 0, stop: 500, step: 10}
+
+    Returns (turnon_vars, labels, bins)
+    """
+    if obj is None:
+        return [truth_pt_turnon_var], ["Truth $p_T$ [GeV]"], [bins_lookup["truth_pt_bins"]]
+
+    vars_out = []
+    labels = []
+    bins_out = []
+    for item in obj:
+        if isinstance(item, str):
+            name = item
+            kwargs = {}
+            label = name
+            bins_spec = None
+        elif isinstance(item, dict):
+            name = item["name"]
+            kwargs = item.get("kwargs", {}) or {}
+            label = item.get("label", name)
+            bins_spec = item.get("bins")
+        else:
+            raise TypeError(f"Invalid turn-on variable entry: {item!r}")
+
+        if name not in TURNON_VARIABLES:
+            raise ValueError(
+                f"Unknown turn-on variable '{name}'. Known variables: {sorted(TURNON_VARIABLES)}"
+            )
+        fn = TURNON_VARIABLES[name]
+        if kwargs:
+            def _wrapped(pairs, nobj, _fn=fn, _kwargs=kwargs):
+                return _fn(pairs, nobj, **_kwargs)
+            vars_out.append(_wrapped)
+        else:
+            vars_out.append(fn)
+        labels.append(label)
+
+        if bins_spec is None:
+            bins_out.append(bins_lookup["truth_pt_bins"])
+        elif isinstance(bins_spec, str):
+            if bins_spec not in bins_lookup:
+                raise ValueError(
+                    f"Unknown bins reference '{bins_spec}'. Known bins: {sorted(bins_lookup)}"
+                )
+            bins_out.append(bins_lookup[bins_spec])
+        else:
+            bins_out.append(_parse_bins(bins_spec))
+
+    return vars_out, labels, bins_out
+
+
 def load_run_config(path: str | Path) -> RunConfig:
     path = Path(path)
     data: Dict[str, Any] = yaml.safe_load(path.read_text())
@@ -99,13 +192,31 @@ def load_run_config(path: str | Path) -> RunConfig:
 
     # default empty dicts/lists
     data.setdefault("match_dict", {})
-    data.setdefault("extra_vars", [])
+    data.setdefault("extra_vars", {})
     data.setdefault("truth_suffix", "")
+    data.setdefault("reco_labels", data.get("reco_prefixes", []))
 
     # Some YAML authors may provide scalars where lists are expected
-    for k in ["signal_files", "background_files", "background_weights", "reco_prefixes", "nobjs", "rates", "triggers"]:
+    for k in ["signal_files", "background_files", "background_weights", "reco_prefixes", "reco_labels", "nobjs", "rates", "triggers"]:
         if k in data and not isinstance(data[k], list):
             data[k] = [data[k]]
+
+    data["extra_vars"] = _normalize_extra_vars(
+        data.get("extra_vars"),
+        data.get("reco_prefixes", []),
+    )
+
+    turnon_variables = data.pop("turnon_variables", None)
+    turnon_vars, turnon_labels, turnon_bins = _parse_turnon_vars(
+        turnon_variables,
+        {
+            "truth_pt_bins": data["truth_pt_bins"],
+            "truth_eta_bins": data["truth_eta_bins"],
+        },
+    )
+    data.setdefault("turnon_vars", turnon_vars)
+    data.setdefault("turnon_var_labels", turnon_labels)
+    data.setdefault("turnon_bins", turnon_bins)
 
     cfg = RunConfig(**data)
     return cfg

@@ -35,6 +35,7 @@ class RunConfig:
     background_files: list[str]
     background_weights: list[float]
     reco_prefixes: list[str]
+    reco_labels: list[str] | None
     truth_prefix: str
     truth_suffix: str
     match_dict: dict
@@ -46,7 +47,10 @@ class RunConfig:
     do_rho_sub: bool
     rates: list[float]
     triggers :list[list[float]]
-    extra_vars: list[str]
+    extra_vars: dict[str, list[str]]
+    turnon_vars: list[Callable[[ak.Array, int], ak.Array]]
+    turnon_var_labels: list[str]
+    turnon_bins: list[np.ndarray]
     tree: str = "ntuple"
     dr_max: float = 0.2
     reco_pt_min: float = 10.
@@ -56,19 +60,28 @@ class RunConfig:
     truth_iso_dr: float = 0.4
         
     def __post_init__(self):
+        if self.reco_labels is None:
+            self.reco_labels = list(self.reco_prefixes)
         if len(self.background_files)!=len(self.background_weights):
             raise ValueError(f"Background files ({len(self.background_files)}) and weights ({len(self.background_weights)}) must be the same length")
+        if len(self.reco_labels)!=len(self.reco_prefixes):
+            raise ValueError(f"Reconstruction labels ({len(self.reco_labels)}) and reco prefixes ({len(self.reco_prefixes)}) must be the same length")
         if len(self.nobjs)!=len(self.rates):
             raise ValueError(f"Number of objects ({len(self.nobjs)}) and rates ({len(self.rates)}) must be the same length")
         if len(self.sels)!=len(self.sel_labels):
             raise ValueError(f"Number of selectors ({len(self.sels)}) and selector labels ({len(self.sel_labels)}) must be the same length")
         if len(self.nobjs)!=len(self.triggers):
             raise ValueError(f"Number of objects ({len(self.nobjs)}) and triggers ({len(self.triggers)}) must be the same length")
+        if len(self.turnon_vars)!=len(self.turnon_var_labels):
+            raise ValueError(f"Number of turn-on variables ({len(self.turnon_vars)}) and labels ({len(self.turnon_var_labels)}) must be the same length")
+        if len(self.turnon_vars)!=len(self.turnon_bins):
+            raise ValueError(f"Number of turn-on variables ({len(self.turnon_vars)}) and bins ({len(self.turnon_bins)}) must be the same length")
 
 @dataclass
 class RunResult:
     name: str
     reco: str
+    reco_label: str
     nobj:int
     sel_label: str
     fixrate: bool
@@ -86,6 +99,12 @@ class RunResult:
     response_corr: dict
     resol_uncorr: dict
     resol_corr: dict
+    turnon_label: str
+    turnon_bins: np.ndarray
+
+
+def result_reco_label(result: RunResult) -> str:
+    return getattr(result, "reco_label", result.reco)
 
 def delta_phi(phi1,phi2):
     dphi = phi1-phi2
@@ -93,9 +112,10 @@ def delta_phi(phi1,phi2):
     dphi = dphi-2*np.pi*(dphi>np.pi).astype(np.float32)
     return dphi
 
-def match_chunk_vectorized(chunk, reco_prefixes, reco_branches, truth_branches, dr_max, 
+def match_chunk_vectorized(chunk, reco_prefixes, reco_branches, truth_branches, dr_max,
                           reco_iso_dr=0.4, truth_iso_dr=0.4,
-                          reco_pt_min=None, truth_pt_min=None, pt_min=None):
+                          reco_pt_min=None, truth_pt_min=None, pt_min=None,
+                          extra_vars_by_prefix=None):
     """
     Vectorized matching for an entire chunk of events using awkward arrays.
     Non-greedy: each truth object matches to its closest reco object within dr_max.
@@ -122,21 +142,30 @@ def match_chunk_vectorized(chunk, reco_prefixes, reco_branches, truth_branches, 
 #         t_eta = t_eta[t_isolated]
 #         t_phi = t_phi[t_isolated]
     
+    if extra_vars_by_prefix is None:
+        extra_vars_by_prefix = {}
+
     results = {
         'reco_pt': {}, 'reco_eta': {}, 'reco_phi': {},
-        'truth_pt': {}, 'truth_eta': {}, 'truth_phi': {}
+        'truth_pt': {}, 'truth_eta': {}, 'truth_phi': {},
+        'reco_extra': {},
     }
     
     for reco_prefix in reco_prefixes:
         r_pt = chunk[reco_branches[reco_prefix][0]]
         r_eta = chunk[reco_branches[reco_prefix][1]]
         r_phi = chunk[reco_branches[reco_prefix][2]]
+        r_extra = {}
+        for extra_name in extra_vars_by_prefix.get(reco_prefix, []):
+            r_extra[extra_name] = chunk[f"{reco_prefix}_{extra_name}"]
 
         # Apply pT cuts if specified
         r_mask = r_pt > pt_min
         r_pt = r_pt[r_mask]
         r_eta = r_eta[r_mask]
         r_phi = r_phi[r_mask]
+        for extra_name in r_extra:
+            r_extra[extra_name] = r_extra[extra_name][r_mask]
         
         # Apply reco isolation if specified
         r_isolated = compute_isolation_awkward(r_eta, r_phi, reco_iso_dr)
@@ -148,7 +177,19 @@ def match_chunk_vectorized(chunk, reco_prefixes, reco_branches, truth_branches, 
             r_isolated = r_isolated & (r_pt > reco_pt_min)
         
         # Full vectorized matching
-        matched = match_awkward_full(r_pt, r_eta, r_phi, t_pt, t_eta, t_phi, dr_max, r_isolated, t_isolated, pt_min)
+        matched = match_awkward_full(
+            r_pt,
+            r_eta,
+            r_phi,
+            t_pt,
+            t_eta,
+            t_phi,
+            dr_max,
+            r_isolated,
+            t_isolated,
+            pt_min,
+            extra_vars=r_extra,
+        )
         
         results['reco_pt'][reco_prefix] = matched['reco_pt']
         results['reco_eta'][reco_prefix] = matched['reco_eta']
@@ -156,6 +197,7 @@ def match_chunk_vectorized(chunk, reco_prefixes, reco_branches, truth_branches, 
         results['truth_pt'][reco_prefix] = matched['truth_pt']
         results['truth_eta'][reco_prefix] = matched['truth_eta']
         results['truth_phi'][reco_prefix] = matched['truth_phi']
+        results['reco_extra'][reco_prefix] = matched.get('reco_extra', {})
     
     return results
 
@@ -184,7 +226,7 @@ def compute_isolation_awkward(eta, phi, iso_dr):
     
     return ~has_nearby
 
-def match_awkward_full(r_pt, r_eta, r_phi, t_pt, t_eta, t_phi, dr_max, riso, tiso, ptmin, k=4):
+def match_awkward_full(r_pt, r_eta, r_phi, t_pt, t_eta, t_phi, dr_max, riso, tiso, ptmin, k=4, extra_vars=None):
     """
     Full vectorized matching using awkward arrays.
     Non-greedy: each truth object matches to closest reco within dr_max.
@@ -272,7 +314,7 @@ def match_awkward_full(r_pt, r_eta, r_phi, t_pt, t_eta, t_phi, dr_max, riso, tis
     #print('n_reco',np.histogram(ak.to_numpy(ak.count_nonzero(reco_pt_out>0, axis=-1))))
     #print('n_truth',np.histogram(ak.to_numpy(ak.count_nonzero(truth_pt_out>0, axis=-1))))
 
-    return {
+    output = {
         'reco_pt': reco_pt_out,
         'reco_eta': reco_eta_out,
         'reco_phi': reco_phi_out,
@@ -280,6 +322,40 @@ def match_awkward_full(r_pt, r_eta, r_phi, t_pt, t_eta, t_phi, dr_max, riso, tis
         'truth_eta': truth_eta_out,
         'truth_phi': truth_phi_out,
     }
+
+    if extra_vars:
+        reco_extra_out = {}
+        for extra_name, r_extra in extra_vars.items():
+            matched_extra = r_extra[closest_reco_idx]
+            matched_extra = ak.where(has_match, matched_extra, np.nan)
+            unmatched_extra = r_extra[(~reco_was_matched) & (r_pt > ptmin)]
+            unmatched_extra = unmatched_extra[order]
+            unmatched_extra = unmatched_extra[:,:k]
+            reco_extra_out[extra_name] = ak.concatenate([matched_extra, unmatched_extra], axis=1)
+        output['reco_extra'] = reco_extra_out
+
+    return output
+
+
+def _normalize_extra_vars(reco_prefixes, extra_vars):
+    if extra_vars is None:
+        return {prefix: [] for prefix in reco_prefixes}
+    if isinstance(extra_vars, dict):
+        normalized = {}
+        for prefix in reco_prefixes:
+            value = extra_vars.get(prefix, [])
+            if value is None:
+                normalized[prefix] = []
+            elif isinstance(value, (list, tuple)):
+                normalized[prefix] = list(value)
+            else:
+                normalized[prefix] = [str(value)]
+        return normalized
+    if isinstance(extra_vars, (list, tuple)):
+        return {prefix: list(extra_vars) for prefix in reco_prefixes}
+    if isinstance(extra_vars, str):
+        return {prefix: [extra_vars] for prefix in reco_prefixes}
+    raise TypeError(f"Unsupported extra_vars format: {type(extra_vars)}")
 
 def match_reco_truth(
     files,
@@ -298,20 +374,22 @@ def match_reco_truth(
     phi_name="phi",
     dr_max=0.2,
     tree_name="ntuple",
-    extra_vars=[],
+    extra_vars=None,
     step_size=10000,
 ):
 
     if pt_reco_names is None:
         pt_reco_names=["pt"]*len(reco_prefixes)
     
+    extra_vars_by_prefix = _normalize_extra_vars(reco_prefixes, extra_vars)
+
     reco_branches = {}
-    for i,reco_prefix in enumerate(reco_prefixes):
-        reco_branches[reco_prefix]=[
+    for i, reco_prefix in enumerate(reco_prefixes):
+        reco_branches[reco_prefix] = [
             f"{reco_prefix}_{pt_reco_names[i]}",
             f"{reco_prefix}_{eta_name}",
             f"{reco_prefix}_{phi_name}",
-        ] + [f"{reco_prefix}_{extra_var}" for extra_var in extra_vars]
+        ] + [f"{reco_prefix}_{extra_var}" for extra_var in extra_vars_by_prefix[reco_prefix]]
 
     truth_branches = [
         f"{truth_prefix}_{pt_truth_name}{truth_suffix}",
@@ -333,6 +411,10 @@ def match_reco_truth(
     truth_pts = {reco_prefix:[] for reco_prefix in reco_prefixes}
     truth_etas = {reco_prefix:[] for reco_prefix in reco_prefixes}
     truth_phis = {reco_prefix:[] for reco_prefix in reco_prefixes}
+    reco_extras = {
+        reco_prefix: {extra_name: [] for extra_name in extra_vars_by_prefix[reco_prefix]}
+        for reco_prefix in reco_prefixes
+    }
 
     def process_file(filename, weight):
         with uproot.open(filename) as ftmp:
@@ -352,17 +434,32 @@ def match_reco_truth(
         file_rhos = []
 
         for chunk in tqdm(it, total=total_chunks, desc=f"{filename}"):
-            for name in [reco_branches[r][0] for r in reco_branches]+truth_branches[:1]:
+            for name in [reco_branches[r][0] for r in reco_branches] + truth_branches[:1]:
                 chunk = ak.with_field(chunk, ak.values_astype(chunk[name] / 1000.0, np.float32), name) # convert to GeV
-            for name in [reco_branches[r][1] for r in reco_branches]+truth_branches[1:2]:
+            for name in [reco_branches[r][1] for r in reco_branches] + truth_branches[1:2]:
                 chunk = ak.with_field(chunk, ak.values_astype(chunk[name], np.float32), name)
-            for name in [reco_branches[r][2] for r in reco_branches]+truth_branches[2:]:
+            for name in [reco_branches[r][2] for r in reco_branches] + truth_branches[2:]:
+                chunk = ak.with_field(chunk, ak.values_astype(chunk[name], np.float32), name)
+            for name in [
+                extra_branch
+                for reco_prefix in reco_prefixes
+                for extra_branch in reco_branches[reco_prefix][3:]
+            ]:
                 chunk = ak.with_field(chunk, ak.values_astype(chunk[name], np.float32), name)
             n_events_chunk = len(chunk[reco_branches[reco_prefixes[0]][0]])
             # Process entire chunk at once
             results = match_chunk_vectorized(
-                chunk, reco_prefixes, reco_branches, truth_branches, dr_max,
-                reco_iso_dr, truth_iso_dr, reco_pt_min, truth_pt_min, pt_min
+                chunk,
+                reco_prefixes,
+                reco_branches,
+                truth_branches,
+                dr_max,
+                reco_iso_dr,
+                truth_iso_dr,
+                reco_pt_min,
+                truth_pt_min,
+                pt_min,
+                extra_vars_by_prefix,
             )
 
             # Append results (now as awkward arrays)
@@ -378,6 +475,8 @@ def match_reco_truth(
                 truth_pts[reco_prefix].append(results['truth_pt'][reco_prefix])
                 truth_etas[reco_prefix].append(results['truth_eta'][reco_prefix])
                 truth_phis[reco_prefix].append(results['truth_phi'][reco_prefix])
+                for extra_name, extra_values in results['reco_extra'][reco_prefix].items():
+                    reco_extras[reco_prefix][extra_name].append(extra_values)
 
             event_offset += n_events_chunk
             
@@ -398,21 +497,28 @@ def match_reco_truth(
         process_file(f,weights[i])
         
     # Convert everything to an awkward record-of-lists
-    return {reco_prefix:ak.zip(
-        {
-            "event": ak.Array(event_ids),
-            "weight": ak.Array(event_weights),
-            "rho": ak.fill_none(ak.pad_none(event_rhos, 3, axis=-1, clip=True), 0., axis=-1), # TODO: why is this necessary for zprime?
-            #"reco_pt": ak.Array(reco_pts[reco_prefix]), # old implementation
-            "reco_pt": ak.concatenate(reco_pts[reco_prefix]),
-            "reco_eta": ak.concatenate(reco_etas[reco_prefix]),
-            "reco_phi": ak.concatenate(reco_phis[reco_prefix]),
-            "truth_pt": ak.concatenate(truth_pts[reco_prefix]),
-            "truth_eta": ak.concatenate(truth_etas[reco_prefix]),
-            "truth_phi": ak.concatenate(truth_phis[reco_prefix]),
-        },
-        depth_limit=1
-    ) for reco_prefix in reco_prefixes}
+    return {
+        reco_prefix: ak.zip(
+            {
+                "event": ak.Array(event_ids),
+                "weight": ak.Array(event_weights),
+                "rho": ak.fill_none(ak.pad_none(event_rhos, 3, axis=-1, clip=True), 0., axis=-1), # TODO: why is this necessary for zprime?
+                #"reco_pt": ak.Array(reco_pts[reco_prefix]), # old implementation
+                "reco_pt": ak.concatenate(reco_pts[reco_prefix]),
+                "reco_eta": ak.concatenate(reco_etas[reco_prefix]),
+                "reco_phi": ak.concatenate(reco_phis[reco_prefix]),
+                "truth_pt": ak.concatenate(truth_pts[reco_prefix]),
+                "truth_eta": ak.concatenate(truth_etas[reco_prefix]),
+                "truth_phi": ak.concatenate(truth_phis[reco_prefix]),
+                **{
+                    f"reco_{extra_name}": ak.concatenate(reco_extras[reco_prefix][extra_name])
+                    for extra_name in extra_vars_by_prefix[reco_prefix]
+                },
+            },
+            depth_limit=1,
+        )
+        for reco_prefix in reco_prefixes
+    }
 
 
 def select_kth(arr, field, sorton, k):
@@ -743,9 +849,10 @@ def teff(num, den, sumw2_num=None, sumw2_den=None, alpha=0.682689492137086):
 def compute_signal_efficiency(
     sig_pairs,
     threshold,
-    truth_pt_bins,
+    turnon_bins,
     nobj,
     selector,
+    turnon_values=None,
     weights=False,
     inclusive=False,
     correctors=None,
@@ -762,8 +869,8 @@ def compute_signal_efficiency(
     threshold : float
         Reco-pt threshold. An event "passes" if reco_pt > threshold by default.
         Use inclusive=True to treat reco_pt >= threshold as passing.
-    truth_pt_bins : array_like
-        Bin edges for truth-pt (e.g. np.linspace(0,2000,41)).
+    turnon_bins : array_like
+        Bin edges for the turn-on variable (e.g. np.linspace(0,2000,41)).
     weights : bool
         Use weights.
     inclusive : bool
@@ -783,9 +890,9 @@ def compute_signal_efficiency(
         Approximate 1-sigma uncertainty on the efficiency in each bin.
     """
     if sig_pairs is None or len(sig_pairs) == 0:
-        nbins = len(truth_pt_bins) - 1
+        nbins = len(turnon_bins) - 1
         return (
-            0.5 * (truth_pt_bins[:-1] + truth_pt_bins[1:]),
+            0.5 * (turnon_bins[:-1] + turnon_bins[1:]),
             np.zeros(nbins, dtype=float),
             np.zeros(nbins, dtype=float),
             np.zeros(nbins, dtype=float),
@@ -799,23 +906,24 @@ def compute_signal_efficiency(
                 
 
     reco_pt, reco_eta = select_kths(sig_pairs, ["reco_pt","reco_eta"], "reco_pt", nobj)
-    truth_pt = select_kth(sig_pairs, "truth_pt", "truth_pt", nobj)
+    if turnon_values is None:
+        turnon_values = select_kth(sig_pairs, "truth_pt", "truth_pt", nobj)
 
 
     esel = selector(sig_pairs)
     reco_pt = reco_pt[esel]
     reco_eta = reco_eta[esel]
-    truth_pt = truth_pt[esel]
+    turnon_values = turnon_values[esel]
     w = ak.to_numpy(sig_pairs["weight"])[esel]
 
     if not weights:
         # Unweighted histograms
-        total_counts, edges = np.histogram(truth_pt, bins=truth_pt_bins)
+        total_counts, edges = np.histogram(turnon_values, bins=turnon_bins)
         if inclusive:
             passed_mask = (reco_pt >= threshold)
         else:
             passed_mask = (reco_pt > threshold)
-        passed_counts, _ = np.histogram(truth_pt[passed_mask], bins=truth_pt_bins)
+        passed_counts, _ = np.histogram(turnon_values[passed_mask], bins=turnon_bins)
 
         efficiency, errlo, errhi = teff(passed_counts, total_counts)
 
@@ -824,12 +932,12 @@ def compute_signal_efficiency(
         w_pass = w[passed_mask]
 
         # sum of weights
-        total_w, _ = np.histogram(truth_pt, bins=truth_pt_bins, weights=w)
-        passed_w, _ = np.histogram(truth_pt[passed_mask], bins=truth_pt_bins, weights=w_pass)
+        total_w, _ = np.histogram(turnon_values, bins=turnon_bins, weights=w)
+        passed_w, _ = np.histogram(turnon_values[passed_mask], bins=turnon_bins, weights=w_pass)
 
         # sum of squared weights (for effective counts)
-        total_w2, _ = np.histogram(truth_pt, bins=truth_pt_bins, weights=w * w)
-        passed_w2, _ = np.histogram(truth_pt[passed_mask], bins=truth_pt_bins, weights=w_pass * w_pass)
+        total_w2, _ = np.histogram(turnon_values, bins=turnon_bins, weights=w * w)
+        passed_w2, _ = np.histogram(turnon_values[passed_mask], bins=turnon_bins, weights=w_pass * w_pass)
 
         efficiency, errlo, errhi = teff(
             passed_w,
@@ -1521,7 +1629,7 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
                     plt.close(fig)
         
     for n in range(len(config.nobjs)):
-        for reco_prefix in config.reco_prefixes:
+        for reco_prefix, reco_label in zip(config.reco_prefixes, config.reco_labels):
 
             if n==0:
                 
@@ -1615,58 +1723,36 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
             threshold,actual_eff = compute_pt_threshold(bkg_pairs[reco_prefix], rate_eff, config.nobjs[n]) #in kHz
             print(f"For {reco_prefix}, n={config.nobjs[n]}, target rate efficiency of {rate_eff:.6f}, threshold of {threshold:.6f} gives actual rate efficiency of {actual_eff:.6f}")
 
-            for s in range(len(config.sels)):
-                # Signal efficiency vs truth-pt
-                centers, eff, _,_, err = compute_signal_efficiency(
-                    sig_pairs[reco_prefix], threshold, config.truth_pt_bins, config.nobjs[n], config.sels[s]
-                )
-                
-                full_sig_eff, full_sig_err = compute_full_efficiency(sig_pairs[reco_prefix], config.truth_pt_bins, config.nobjs[n], config.sels[s], weights=False)
-                full_bkg_eff, full_bkg_err = compute_full_efficiency(bkg_pairs[reco_prefix], config.truth_pt_bins, config.nobjs[n], config.sels[s], weights=True)
-
-                results.append(
-                    RunResult(
-                        name=config.name,
-                        sel_label=config.sel_labels[s],
-                        reco=reco_prefix,
-                        nobj=config.nobjs[n],
-                        fixrate=True,
-                        threshold=threshold,
-                        rate=config.rates[n],
-                        truth_pt_bins=config.truth_pt_bins,
-                        truth_eta_bins=config.truth_eta_bins,
-                        signal_efficiency=eff,
-                        signal_efficiency_error=err,
-                        full_sig_efficiency=full_sig_eff,
-                        full_sig_efficiency_error=full_sig_err,
-                        full_bkg_efficiency=full_bkg_eff,
-                        full_bkg_efficiency_error=full_bkg_err,
-                        response_uncorr=response_uncorr,
-                        response_corr=response_corr,
-                        resol_uncorr=resol_uncorr,
-                        resol_corr=resol_corr,
-                    )
-                )
-                
-                
-            for threshold in config.triggers[n]:
-                rate, actual_eff = compute_rate(bkg_pairs[reco_prefix], threshold, config.nobjs[n])
-                print(f"For {reco_prefix}, n={config.nobjs[n]}, trigger threshold of {threshold:.1f} gives actual rate efficiency of {actual_eff:.6f} (rate {rate:.6f} kHz)")
+            for turnon_fn, turnon_label, turnon_bins in zip(
+                config.turnon_vars,
+                config.turnon_var_labels,
+                config.turnon_bins,
+            ):
+                turnon_values = turnon_fn(sig_pairs[reco_prefix], config.nobjs[n])
                 for s in range(len(config.sels)):
-                    # Signal efficiency vs truth-pt
+                    # Signal efficiency vs turn-on variable
                     centers, eff, _,_, err = compute_signal_efficiency(
-                        sig_pairs[reco_prefix], threshold, config.truth_pt_bins, config.nobjs[n], config.sels[s]
+                        sig_pairs[reco_prefix],
+                        threshold,
+                        turnon_bins,
+                        config.nobjs[n],
+                        config.sels[s],
+                        turnon_values=turnon_values,
                     )
+                    
+                    full_sig_eff, full_sig_err = compute_full_efficiency(sig_pairs[reco_prefix], config.truth_pt_bins, config.nobjs[n], config.sels[s], weights=False)
+                    full_bkg_eff, full_bkg_err = compute_full_efficiency(bkg_pairs[reco_prefix], config.truth_pt_bins, config.nobjs[n], config.sels[s], weights=True)
 
                     results.append(
                         RunResult(
                             name=config.name,
                             sel_label=config.sel_labels[s],
                             reco=reco_prefix,
+                            reco_label=reco_label,
                             nobj=config.nobjs[n],
-                            fixrate=False,
+                            fixrate=True,
                             threshold=threshold,
-                            rate=rate,
+                            rate=config.rates[n],
                             truth_pt_bins=config.truth_pt_bins,
                             truth_eta_bins=config.truth_eta_bins,
                             signal_efficiency=eff,
@@ -1679,8 +1765,58 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
                             response_corr=response_corr,
                             resol_uncorr=resol_uncorr,
                             resol_corr=resol_corr,
+                            turnon_label=turnon_label,
+                            turnon_bins=turnon_bins,
                         )
                     )
+                
+                
+            for threshold in config.triggers[n]:
+                rate, actual_eff = compute_rate(bkg_pairs[reco_prefix], threshold, config.nobjs[n])
+                print(f"For {reco_prefix}, n={config.nobjs[n]}, trigger threshold of {threshold:.1f} gives actual rate efficiency of {actual_eff:.6f} (rate {rate:.6f} kHz)")
+                for turnon_fn, turnon_label, turnon_bins in zip(
+                    config.turnon_vars,
+                    config.turnon_var_labels,
+                    config.turnon_bins,
+                ):
+                    turnon_values = turnon_fn(sig_pairs[reco_prefix], config.nobjs[n])
+                    for s in range(len(config.sels)):
+                        # Signal efficiency vs turn-on variable
+                        centers, eff, _,_, err = compute_signal_efficiency(
+                            sig_pairs[reco_prefix],
+                            threshold,
+                            turnon_bins,
+                            config.nobjs[n],
+                            config.sels[s],
+                            turnon_values=turnon_values,
+                        )
+
+                        results.append(
+                            RunResult(
+                                name=config.name,
+                                sel_label=config.sel_labels[s],
+                                reco=reco_prefix,
+                                reco_label=reco_label,
+                                nobj=config.nobjs[n],
+                                fixrate=False,
+                                threshold=threshold,
+                                rate=rate,
+                                truth_pt_bins=config.truth_pt_bins,
+                                truth_eta_bins=config.truth_eta_bins,
+                                signal_efficiency=eff,
+                                signal_efficiency_error=err,
+                                full_sig_efficiency=full_sig_eff,
+                                full_sig_efficiency_error=full_sig_err,
+                                full_bkg_efficiency=full_bkg_eff,
+                                full_bkg_efficiency_error=full_bkg_err,
+                                response_uncorr=response_uncorr,
+                                response_corr=response_corr,
+                                resol_uncorr=resol_uncorr,
+                                resol_corr=resol_corr,
+                                turnon_label=turnon_label,
+                                turnon_bins=turnon_bins,
+                            )
+                        )
                 
         if debug: 
             for var in ["reco_pt","reco_eta","truth_pt","truth_eta"]:
@@ -1749,6 +1885,7 @@ def save_run_result(result: RunResult, path):
         path,
         name=result.name,
         reco=result.reco,
+        reco_label=result.reco_label,
         nobj=result.nobj,
         sel_label=result.sel_label,
         fixrate=result.fixrate,
@@ -1766,13 +1903,18 @@ def save_run_result(result: RunResult, path):
         response_corr=np.array(result.response_corr, dtype=object),
         resol_uncorr=np.array(result.resol_uncorr, dtype=object),
         resol_corr=np.array(result.resol_corr, dtype=object),
+        turnon_label=result.turnon_label,
+        turnon_bins=result.turnon_bins,
     )
 
 def load_run_result(path):
     data = np.load(path, allow_pickle=True)
+    turnon_label = data["turnon_label"].item() if "turnon_label" in data else "truth_pt"
+    turnon_bins = data["turnon_bins"] if "turnon_bins" in data else data["truth_pt_bins"]
     return RunResult(
         name=data["name"].item(),
         reco=data["reco"].item(),
+        reco_label=data["reco_label"].item() if "reco_label" in data else data["reco"].item(),
         nobj=data["nobj"].item(),
         sel_label=data["sel_label"].item(),
         fixrate=data["fixrate"].item(),
@@ -1790,6 +1932,8 @@ def load_run_result(path):
         response_corr=data["response_corr"],
         resol_uncorr=data["resol_uncorr"],
         resol_corr=data["resol_corr"],
+        turnon_label=turnon_label,
+        turnon_bins=turnon_bins,
     )
 
 import scipy.optimize as opt
@@ -1825,14 +1969,16 @@ def overlay_efficiency(results, suffix="", titletxt="", nobj=1, xmax=-1., noerr=
     
     params = {}
     for i,r in enumerate(results):
-        pt_centers = 0.5*(r.truth_pt_bins[:-1]+r.truth_pt_bins[1:])
-        xmask = (pt_centers < xmax) if xmax>0. else np.ones(len(pt_centers))
-        params[i],_ = fit_logistic(pt_centers[xmask], r.signal_efficiency[xmask], np.mean(r.signal_efficiency_error,axis=0)[xmask])
-        label_full = r.reco+", "+r.name+r' [$p_T$>'+('%.1f'%r.threshold)+'] ($\\sigma$='+('%.2f'%(1./params[i][1]))+', $p_T^{98\\%}$='+('%.2f'%(params[i][2]+np.log(49)/params[i][1]))+')'
-        plt.errorbar(pt_centers[xmask], r.signal_efficiency[xmask], None if noerr else r.signal_efficiency_error[:,xmask], marker='s', label=label_full, color='C%i'%i, capsize=3, capthick=2, linestyle='none', mfc='none', alpha=0.5, markersize=4)
-        plt.plot(pt_centers[xmask], logistic_function(pt_centers[xmask],*params[i]), color='C%i'%i, linestyle='dashed')
+        turnon_bins = getattr(r, "turnon_bins", r.truth_pt_bins)
+        turnon_label = getattr(r, "turnon_label", "Truth $p_T$ [GeV]")
+        turnon_centers = 0.5*(turnon_bins[:-1]+turnon_bins[1:])
+        xmask = (turnon_centers < xmax) if xmax>0. else np.ones(len(turnon_centers))
+        params[i],_ = fit_logistic(turnon_centers[xmask], r.signal_efficiency[xmask], np.mean(r.signal_efficiency_error,axis=0)[xmask])
+        label_full = result_reco_label(r)+", "+r.name+r' [$p_T$>'+('%.1f'%r.threshold)+'] ($\\sigma$='+('%.2f'%(1./params[i][1]))+', $p_T^{98\\%}$='+('%.2f'%(params[i][2]+np.log(49)/params[i][1]))+')'
+        plt.errorbar(turnon_centers[xmask], r.signal_efficiency[xmask], None if noerr else r.signal_efficiency_error[:,xmask], marker='s', label=label_full, color='C%i'%i, capsize=3, capthick=2, linestyle='none', mfc='none', alpha=0.5, markersize=4)
+        plt.plot(turnon_centers[xmask], logistic_function(turnon_centers[xmask],*params[i]), color='C%i'%i, linestyle='dashed')
 
-    plt.xlabel(r"%s Truth $p_T$ [GeV]"%numtext[nobj])
+    plt.xlabel(r"%s %s"%(numtext[nobj], turnon_label))
     plt.ylabel("Signal efficiency")
     plt.legend(bbox_to_anchor=(1.05, 1),title=titletxt)
     plt.grid(True)
@@ -1841,12 +1987,13 @@ def overlay_efficiency(results, suffix="", titletxt="", nobj=1, xmax=-1., noerr=
     plt.clf()
 
     for i,r in enumerate(results):
-        pt_centers = 0.5*(r.truth_pt_bins[:-1]+r.truth_pt_bins[1:])
-        shiftmask = pt_centers < (params[i][2]+3.*np.log(49)/params[i][1]) # 2x the shift from 50 to 98 to make sure its visible
-        params_adj,_ = fit_logistic(pt_centers[shiftmask]-(params[i][2]+np.log(49)/params[i][1]), r.signal_efficiency[shiftmask], np.mean(r.signal_efficiency_error,axis=0)[shiftmask])
-        label_full = r.reco+", "+r.name+r' [$p_T$>'+('%.1f'%r.threshold)+'] ($\\hat{\\sigma}$='+('%.2f'%(1./params_adj[1]))+', $\\hat{p}_T^{98\\%}$='+('%.2f'%(params_adj[2]+np.log(49)/params_adj[1]))+')'
-        plt.errorbar(pt_centers[shiftmask]-(params[i][2]+np.log(49)/params[i][1]), r.signal_efficiency[shiftmask], None if noerr else r.signal_efficiency_error[:,shiftmask], marker='s', label=label_full, color='C%i'%i, capsize=3, capthick=2, linestyle='none', mfc='none', alpha=0.5, markersize=4)
-        plt.plot(pt_centers[shiftmask]-(params[i][2]+np.log(49)/params[i][1]), logistic_function(pt_centers[shiftmask]-(params[i][2]+np.log(49)/params[i][1]),*params_adj), color='C%i'%i, linestyle='dashed')
+        turnon_bins = getattr(r, "turnon_bins", r.truth_pt_bins)
+        turnon_centers = 0.5*(turnon_bins[:-1]+turnon_bins[1:])
+        shiftmask = turnon_centers < (params[i][2]+3.*np.log(49)/params[i][1]) # 2x the shift from 50 to 98 to make sure its visible
+        params_adj,_ = fit_logistic(turnon_centers[shiftmask]-(params[i][2]+np.log(49)/params[i][1]), r.signal_efficiency[shiftmask], np.mean(r.signal_efficiency_error,axis=0)[shiftmask])
+        label_full = result_reco_label(r)+", "+r.name+r' [$p_T$>'+('%.1f'%r.threshold)+'] ($\\hat{\\sigma}$='+('%.2f'%(1./params_adj[1]))+', $\\hat{p}_T^{98\\%}$='+('%.2f'%(params_adj[2]+np.log(49)/params_adj[1]))+')'
+        plt.errorbar(turnon_centers[shiftmask]-(params[i][2]+np.log(49)/params[i][1]), r.signal_efficiency[shiftmask], None if noerr else r.signal_efficiency_error[:,shiftmask], marker='s', label=label_full, color='C%i'%i, capsize=3, capthick=2, linestyle='none', mfc='none', alpha=0.5, markersize=4)
+        plt.plot(turnon_centers[shiftmask]-(params[i][2]+np.log(49)/params[i][1]), logistic_function(turnon_centers[shiftmask]-(params[i][2]+np.log(49)/params[i][1]),*params_adj), color='C%i'%i, linestyle='dashed')
 
     plt.xlabel(r"%s Truth $\Delta p_T$ [GeV]"%numtext[nobj])
     plt.ylabel("Signal efficiency")
@@ -1866,7 +2013,7 @@ def overlay_resp_resol(results, corr=False, prefix=""):
                          (r.response_corr if corr else r.response_uncorr)[ie*len(pt_centers):(ie+1)*len(pt_centers)], 
                          (r.resol_corr if corr else r.resol_uncorr)[ie*len(pt_centers):(ie+1)*len(pt_centers)],
                          marker='o', color='C%i'%i, capsize=3, capthick=2, linestyle='none', alpha=0.5, markersize=4,
-                         label=r.reco+", "+r.name)
+                         label=result_reco_label(r)+", "+r.name)
 
         plt.ylabel(r"%sResponse (Truth $p_T$ / Reco $p_T$)"%("Corrected " if corr else ""))
         plt.xlabel(r"Truth $p_T$ [GeV]")
@@ -1882,7 +2029,7 @@ def overlay_resp_resol(results, corr=False, prefix=""):
             plt.plot(pt_centers+(pt_widths)*((0.5*nres)-float(i)), 
                          (r.resol_corr if corr else r.resol_uncorr)[ie*len(pt_centers):(ie+1)*len(pt_centers)], 
                          marker='o', color='C%i'%i, linestyle='none', alpha=0.5, markersize=4,
-                         label=r.reco+", "+r.name)
+                         label=result_reco_label(r)+", "+r.name)
 
         plt.ylabel(r"%sResolution"%("Corrected " if corr else ""))
         plt.xlabel(r"Truth $p_T$ [GeV]")
@@ -1907,7 +2054,7 @@ def overlay_full_effs(results, suffix="", nobj=1, xmax=300.):
                      r.full_sig_efficiency[xmask],
                      yerr=r.full_sig_efficiency_error[:,xmask],
                      marker='o', color='C%i'%i, linestyle='none', alpha=0.5, markersize=4,
-                     label=r.reco)
+                     label=result_reco_label(r))
     plt.ylabel(r"Signal efficiency")
     plt.xlabel(r"%s $p_T$ [GeV]"%numtext[nobj])
     plt.legend(bbox_to_anchor=(1.05, 1))
@@ -1921,7 +2068,7 @@ def overlay_full_effs(results, suffix="", nobj=1, xmax=300.):
                      r.full_bkg_efficiency[xmask]*31_000.,
                      yerr=r.full_bkg_efficiency_error[:,xmask]*31_000.,
                      marker='o', color='C%i'%i, linestyle='none', alpha=0.5, markersize=4,
-                     label=r.reco)
+                     label=result_reco_label(r))
     plt.ylabel(r"Background rate [kHz]")
     plt.yscale('log')
     plt.xlabel(r"%s $p_T$ [GeV]"%numtext[nobj])
@@ -1937,7 +2084,7 @@ def overlay_full_effs(results, suffix="", nobj=1, xmax=300.):
                      xerr=r.full_sig_efficiency_error,
                      yerr=r.full_bkg_efficiency_error*31_000.,
                      marker='o', color='C%i'%i, linestyle='none', alpha=0.5, markersize=4,
-                     label=r.reco)
+                     label=result_reco_label(r))
     plt.ylabel(r"Background rate [kHz]")
     plt.yscale('log')
     plt.xlabel(r"Signal efficiency")
@@ -2176,5 +2323,45 @@ def hh_mass_window_selector(pairs, m_min=75., m_max=175., coll='reco', debug=0, 
         del has4, pass_evt
 
     return event_sel
+
+# turn-on variable functions
+def truth_pt_turnon_var(pairs, nobj):
+    return select_kth(pairs, "truth_pt", "truth_pt", nobj)
+
+def dijet_mass_turnon_var(pairs, nobj, pt_min=0.0, coll="truth"):
+    pt = pairs[f"{coll}_pt"]
+    eta = pairs[f"{coll}_eta"]
+    phi = pairs[f"{coll}_phi"]
+
+    if pt_min is None:
+        pt_min = 0.0
+
+    valid = pt > pt_min
+    pt = pt[valid]
+    eta = eta[valid]
+    phi = phi[valid]
+
+    combos = ak.combinations(pt, 2, axis=1)
+    eta_pairs = ak.combinations(eta, 2, axis=1)
+    phi_pairs = ak.combinations(phi, 2, axis=1)
+
+    pt1 = combos["0"]
+    pt2 = combos["1"]
+    eta1 = eta_pairs["0"]
+    eta2 = eta_pairs["1"]
+    phi1 = phi_pairs["0"]
+    phi2 = phi_pairs["1"]
+
+    deta = eta1 - eta2
+    dphi = ak.where(phi1 - phi2 > np.pi, phi1 - phi2 - 2 * np.pi, phi1 - phi2)
+    dphi = ak.where(dphi < -np.pi, dphi + 2 * np.pi, dphi)
+    m2 = 2.0 * pt1 * pt2 * (np.cosh(deta) - np.cos(dphi))
+    mass = ak.sqrt(m2)
+
+    abs_deta = ak.abs(deta)
+    max_idx = ak.argmax(abs_deta, axis=1, keepdims=True)
+    mass_max = ak.flatten(mass[max_idx], axis=1)
+
+    return ak.fill_none(mass_max, np.nan)
 
 base_dir = '/eos/home-d/drankin/GEPEnc/'
