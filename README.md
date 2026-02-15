@@ -30,6 +30,7 @@ signal_files: [".../outputGEPNtuple.root"]
 background_files: [".../outputGEPNtuple.root", "..."]
 background_weights: [76.66, 3.66, 0, 0, 0, 0]
 reco_prefixes: ["AntiKt4GEPCellsE6LSB40G4TowerAlgJets", "..."]
+reco_labels: ["GEP E6 LSB40", "..."]  # optional display labels for plots
 truth_prefix: AntiKt4TruthJets
 truth_suffix: ""
 match_dict:

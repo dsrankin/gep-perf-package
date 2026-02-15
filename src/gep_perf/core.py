@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 vector.register_awkward()
 
 from dataclasses import dataclass, replace
-from typing import Callable
+from typing import Callable, Optional
 
 import os
 
@@ -35,6 +35,7 @@ class RunConfig:
     background_files: list[str]
     background_weights: list[float]
     reco_prefixes: list[str]
+    reco_labels: Optional[list[str]]
     truth_prefix: str
     truth_suffix: str
     match_dict: dict
@@ -59,8 +60,12 @@ class RunConfig:
     truth_iso_dr: float = 0.4
         
     def __post_init__(self):
+        if self.reco_labels is None:
+            self.reco_labels = list(self.reco_prefixes)
         if len(self.background_files)!=len(self.background_weights):
             raise ValueError(f"Background files ({len(self.background_files)}) and weights ({len(self.background_weights)}) must be the same length")
+        if len(self.reco_labels)!=len(self.reco_prefixes):
+            raise ValueError(f"Reconstruction labels ({len(self.reco_labels)}) and reco prefixes ({len(self.reco_prefixes)}) must be the same length")
         if len(self.nobjs)!=len(self.rates):
             raise ValueError(f"Number of objects ({len(self.nobjs)}) and rates ({len(self.rates)}) must be the same length")
         if len(self.sels)!=len(self.sel_labels):
@@ -76,6 +81,7 @@ class RunConfig:
 class RunResult:
     name: str
     reco: str
+    reco_label: str
     nobj:int
     sel_label: str
     fixrate: bool
@@ -95,6 +101,10 @@ class RunResult:
     resol_corr: dict
     turnon_label: str
     turnon_bins: np.ndarray
+
+
+def result_reco_label(result: RunResult) -> str:
+    return getattr(result, "reco_label", result.reco)
 
 def delta_phi(phi1,phi2):
     dphi = phi1-phi2
@@ -1619,7 +1629,7 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
                     plt.close(fig)
         
     for n in range(len(config.nobjs)):
-        for reco_prefix in config.reco_prefixes:
+        for reco_prefix, reco_label in zip(config.reco_prefixes, config.reco_labels):
 
             if n==0:
                 
@@ -1738,6 +1748,7 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
                             name=config.name,
                             sel_label=config.sel_labels[s],
                             reco=reco_prefix,
+                            reco_label=reco_label,
                             nobj=config.nobjs[n],
                             fixrate=True,
                             threshold=threshold,
@@ -1785,6 +1796,7 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
                                 name=config.name,
                                 sel_label=config.sel_labels[s],
                                 reco=reco_prefix,
+                                reco_label=reco_label,
                                 nobj=config.nobjs[n],
                                 fixrate=False,
                                 threshold=threshold,
@@ -1873,6 +1885,7 @@ def save_run_result(result: RunResult, path):
         path,
         name=result.name,
         reco=result.reco,
+        reco_label=result.reco_label,
         nobj=result.nobj,
         sel_label=result.sel_label,
         fixrate=result.fixrate,
@@ -1901,6 +1914,7 @@ def load_run_result(path):
     return RunResult(
         name=data["name"].item(),
         reco=data["reco"].item(),
+        reco_label=data["reco_label"].item() if "reco_label" in data else data["reco"].item(),
         nobj=data["nobj"].item(),
         sel_label=data["sel_label"].item(),
         fixrate=data["fixrate"].item(),
@@ -1960,7 +1974,7 @@ def overlay_efficiency(results, suffix="", titletxt="", nobj=1, xmax=-1., noerr=
         turnon_centers = 0.5*(turnon_bins[:-1]+turnon_bins[1:])
         xmask = (turnon_centers < xmax) if xmax>0. else np.ones(len(turnon_centers))
         params[i],_ = fit_logistic(turnon_centers[xmask], r.signal_efficiency[xmask], np.mean(r.signal_efficiency_error,axis=0)[xmask])
-        label_full = r.reco+", "+r.name+r' [$p_T$>'+('%.1f'%r.threshold)+'] ($\\sigma$='+('%.2f'%(1./params[i][1]))+', $p_T^{98\\%}$='+('%.2f'%(params[i][2]+np.log(49)/params[i][1]))+')'
+        label_full = result_reco_label(r)+", "+r.name+r' [$p_T$>'+('%.1f'%r.threshold)+'] ($\\sigma$='+('%.2f'%(1./params[i][1]))+', $p_T^{98\\%}$='+('%.2f'%(params[i][2]+np.log(49)/params[i][1]))+')'
         plt.errorbar(turnon_centers[xmask], r.signal_efficiency[xmask], None if noerr else r.signal_efficiency_error[:,xmask], marker='s', label=label_full, color='C%i'%i, capsize=3, capthick=2, linestyle='none', mfc='none', alpha=0.5, markersize=4)
         plt.plot(turnon_centers[xmask], logistic_function(turnon_centers[xmask],*params[i]), color='C%i'%i, linestyle='dashed')
 
@@ -1977,7 +1991,7 @@ def overlay_efficiency(results, suffix="", titletxt="", nobj=1, xmax=-1., noerr=
         turnon_centers = 0.5*(turnon_bins[:-1]+turnon_bins[1:])
         shiftmask = turnon_centers < (params[i][2]+3.*np.log(49)/params[i][1]) # 2x the shift from 50 to 98 to make sure its visible
         params_adj,_ = fit_logistic(turnon_centers[shiftmask]-(params[i][2]+np.log(49)/params[i][1]), r.signal_efficiency[shiftmask], np.mean(r.signal_efficiency_error,axis=0)[shiftmask])
-        label_full = r.reco+", "+r.name+r' [$p_T$>'+('%.1f'%r.threshold)+'] ($\\hat{\\sigma}$='+('%.2f'%(1./params_adj[1]))+', $\\hat{p}_T^{98\\%}$='+('%.2f'%(params_adj[2]+np.log(49)/params_adj[1]))+')'
+        label_full = result_reco_label(r)+", "+r.name+r' [$p_T$>'+('%.1f'%r.threshold)+'] ($\\hat{\\sigma}$='+('%.2f'%(1./params_adj[1]))+', $\\hat{p}_T^{98\\%}$='+('%.2f'%(params_adj[2]+np.log(49)/params_adj[1]))+')'
         plt.errorbar(turnon_centers[shiftmask]-(params[i][2]+np.log(49)/params[i][1]), r.signal_efficiency[shiftmask], None if noerr else r.signal_efficiency_error[:,shiftmask], marker='s', label=label_full, color='C%i'%i, capsize=3, capthick=2, linestyle='none', mfc='none', alpha=0.5, markersize=4)
         plt.plot(turnon_centers[shiftmask]-(params[i][2]+np.log(49)/params[i][1]), logistic_function(turnon_centers[shiftmask]-(params[i][2]+np.log(49)/params[i][1]),*params_adj), color='C%i'%i, linestyle='dashed')
 
@@ -1999,7 +2013,7 @@ def overlay_resp_resol(results, corr=False, prefix=""):
                          (r.response_corr if corr else r.response_uncorr)[ie*len(pt_centers):(ie+1)*len(pt_centers)], 
                          (r.resol_corr if corr else r.resol_uncorr)[ie*len(pt_centers):(ie+1)*len(pt_centers)],
                          marker='o', color='C%i'%i, capsize=3, capthick=2, linestyle='none', alpha=0.5, markersize=4,
-                         label=r.reco+", "+r.name)
+                         label=result_reco_label(r)+", "+r.name)
 
         plt.ylabel(r"%sResponse (Truth $p_T$ / Reco $p_T$)"%("Corrected " if corr else ""))
         plt.xlabel(r"Truth $p_T$ [GeV]")
@@ -2015,7 +2029,7 @@ def overlay_resp_resol(results, corr=False, prefix=""):
             plt.plot(pt_centers+(pt_widths)*((0.5*nres)-float(i)), 
                          (r.resol_corr if corr else r.resol_uncorr)[ie*len(pt_centers):(ie+1)*len(pt_centers)], 
                          marker='o', color='C%i'%i, linestyle='none', alpha=0.5, markersize=4,
-                         label=r.reco+", "+r.name)
+                         label=result_reco_label(r)+", "+r.name)
 
         plt.ylabel(r"%sResolution"%("Corrected " if corr else ""))
         plt.xlabel(r"Truth $p_T$ [GeV]")
@@ -2040,7 +2054,7 @@ def overlay_full_effs(results, suffix="", nobj=1, xmax=300.):
                      r.full_sig_efficiency[xmask],
                      yerr=r.full_sig_efficiency_error[:,xmask],
                      marker='o', color='C%i'%i, linestyle='none', alpha=0.5, markersize=4,
-                     label=r.reco)
+                     label=result_reco_label(r))
     plt.ylabel(r"Signal efficiency")
     plt.xlabel(r"%s $p_T$ [GeV]"%numtext[nobj])
     plt.legend(bbox_to_anchor=(1.05, 1))
@@ -2054,7 +2068,7 @@ def overlay_full_effs(results, suffix="", nobj=1, xmax=300.):
                      r.full_bkg_efficiency[xmask]*31_000.,
                      yerr=r.full_bkg_efficiency_error[:,xmask]*31_000.,
                      marker='o', color='C%i'%i, linestyle='none', alpha=0.5, markersize=4,
-                     label=r.reco)
+                     label=result_reco_label(r))
     plt.ylabel(r"Background rate [kHz]")
     plt.yscale('log')
     plt.xlabel(r"%s $p_T$ [GeV]"%numtext[nobj])
@@ -2070,7 +2084,7 @@ def overlay_full_effs(results, suffix="", nobj=1, xmax=300.):
                      xerr=r.full_sig_efficiency_error,
                      yerr=r.full_bkg_efficiency_error*31_000.,
                      marker='o', color='C%i'%i, linestyle='none', alpha=0.5, markersize=4,
-                     label=r.reco)
+                     label=result_reco_label(r))
     plt.ylabel(r"Background rate [kHz]")
     plt.yscale('log')
     plt.xlabel(r"Signal efficiency")
