@@ -194,9 +194,10 @@ def load_run_config(path: str | Path) -> RunConfig:
     data.setdefault("match_dict", {})
     data.setdefault("extra_vars", {})
     data.setdefault("truth_suffix", "")
+    data.setdefault("reco_labels", data.get("reco_prefixes", []))
 
     # Some YAML authors may provide scalars where lists are expected
-    for k in ["signal_files", "background_files", "background_weights", "reco_prefixes", "nobjs", "rates", "triggers"]:
+    for k in ["signal_files", "background_files", "background_weights", "reco_prefixes", "reco_labels", "nobjs", "rates", "triggers"]:
         if k in data and not isinstance(data[k], list):
             data[k] = [data[k]]
 
