@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 
 vector.register_awkward()
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from typing import Callable, Optional
 
 import os
@@ -58,6 +58,8 @@ class RunConfig:
     turnon_fns: list[Callable[[ak.Array, int], ak.Array]]
     turnon_var_labels: list[str]
     turnon_bins: list[np.ndarray]
+    reco_sources: dict[str, str] = field(default_factory=dict)
+    extra_var_branches: dict[str, dict[str, str]] = field(default_factory=dict)
     tree: str = "ntuple"
     dr_max: float = 0.2
     reco_pt_min: float = 10.
@@ -125,7 +127,7 @@ def delta_phi(phi1,phi2):
 def match_chunk_vectorized(chunk, reco_prefixes, reco_branches, truth_branches, dr_max,
                           reco_iso_dr=0.4, truth_iso_dr=0.4,
                           reco_pt_min=None, truth_pt_min=None, pt_min=None,
-                          extra_vars_by_prefix=None):
+                          extra_vars_by_prefix=None, reco_extra_branches=None):
     """
     Vectorized matching for an entire chunk of events using awkward arrays.
     Non-greedy: each truth object matches to its closest reco object within dr_max.
@@ -154,6 +156,14 @@ def match_chunk_vectorized(chunk, reco_prefixes, reco_branches, truth_branches, 
     
     if extra_vars_by_prefix is None:
         extra_vars_by_prefix = {}
+    if reco_extra_branches is None:
+        reco_extra_branches = {
+            reco_prefix: {
+                extra_name: f"{reco_prefix}_{extra_name}"
+                for extra_name in extra_vars_by_prefix.get(reco_prefix, [])
+            }
+            for reco_prefix in reco_prefixes
+        }
 
     results = {
         'reco_pt': {}, 'reco_eta': {}, 'reco_phi': {},
@@ -167,7 +177,7 @@ def match_chunk_vectorized(chunk, reco_prefixes, reco_branches, truth_branches, 
         r_phi = chunk[reco_branches[reco_prefix][2]]
         r_extra = {}
         for extra_name in extra_vars_by_prefix.get(reco_prefix, []):
-            r_extra[extra_name] = chunk[f"{reco_prefix}_{extra_name}"]
+            r_extra[extra_name] = chunk[reco_extra_branches[reco_prefix][extra_name]]
 
         # Apply pT cuts if specified
         r_mask = r_pt > pt_min
@@ -385,6 +395,8 @@ def match_reco_truth(
     dr_max=0.2,
     tree_name="ntuple",
     extra_vars=None,
+    reco_sources=None,
+    extra_var_branches=None,
     step_size=10000,
 ):
 
@@ -392,14 +404,25 @@ def match_reco_truth(
         pt_reco_names=["pt"]*len(reco_prefixes)
     
     extra_vars_by_prefix = _normalize_extra_vars(reco_prefixes, extra_vars)
+    reco_sources = reco_sources or {}
+    extra_var_branches = extra_var_branches or {}
+
+    reco_extra_branches = {}
 
     reco_branches = {}
     for i, reco_prefix in enumerate(reco_prefixes):
+        source_prefix = reco_sources.get(reco_prefix, reco_prefix)
+        extra_branch_map = {}
+        for extra_var in extra_vars_by_prefix[reco_prefix]:
+            source_extra_var = extra_var_branches.get(reco_prefix, {}).get(extra_var, extra_var)
+            extra_branch_map[extra_var] = f"{source_prefix}_{source_extra_var}"
+        reco_extra_branches[reco_prefix] = extra_branch_map
+
         reco_branches[reco_prefix] = [
-            f"{reco_prefix}_{pt_reco_names[i]}",
-            f"{reco_prefix}_{eta_name}",
-            f"{reco_prefix}_{phi_name}",
-        ] + [f"{reco_prefix}_{extra_var}" for extra_var in extra_vars_by_prefix[reco_prefix]]
+            f"{source_prefix}_{pt_reco_names[i]}",
+            f"{source_prefix}_{eta_name}",
+            f"{source_prefix}_{phi_name}",
+        ] + [reco_extra_branches[reco_prefix][extra_var] for extra_var in extra_vars_by_prefix[reco_prefix]]
 
     truth_branches = [
         f"{truth_prefix}_{pt_truth_name}{truth_suffix}",
@@ -470,6 +493,7 @@ def match_reco_truth(
                 truth_pt_min,
                 pt_min,
                 extra_vars_by_prefix,
+                reco_extra_branches,
             )
 
             # Append results (now as awkward arrays)
@@ -1563,6 +1587,8 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
         dr_max=config.dr_max,
         tree_name=config.tree,
         extra_vars=config.extra_vars,
+        reco_sources=config.reco_sources,
+        extra_var_branches=config.extra_var_branches,
         pt_min=config.pt_min,
         reco_pt_min=config.reco_pt_min,
         truth_pt_min=config.truth_pt_min,
@@ -1580,6 +1606,8 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
         dr_max=config.dr_max,
         tree_name=config.tree,
         extra_vars=config.extra_vars,
+        reco_sources=config.reco_sources,
+        extra_var_branches=config.extra_var_branches,
         pt_min=config.pt_min,
         reco_pt_min=config.reco_pt_min,
         truth_pt_min=config.truth_pt_min,

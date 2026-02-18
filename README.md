@@ -73,3 +73,5 @@ extra_vars:
 - `hh_mass_window_selector`
 
 To add more, extend `gep_perf.config.SELECTORS`.
+
+When `extra_vars` contains multiple variants of the same variable for one reco prefix (for example `eRatio_LSB40SIG2`, `eRatio_LSB80SIG2`), the loader automatically expands this into multiple logical reco collections (`<prefix>_LSB40SIG2`, `<prefix>_LSB80SIG2`, etc.). Each expanded collection gets a single logical extra variable name (`eRatio`) and points to the corresponding source branch.
