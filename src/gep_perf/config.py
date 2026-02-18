@@ -113,6 +113,74 @@ def _normalize_extra_vars(obj: Any, reco_prefixes: List[str]) -> Dict[str, List[
         return {prefix: [obj] for prefix in reco_prefixes}
     raise TypeError(f"Unsupported extra_vars format: {type(obj)}")
 
+def _split_extra_var_entry(raw_name: str, reco_prefix: str) -> tuple[str, str]:
+    branch_name = str(raw_name)
+    if branch_name.startswith(f"{reco_prefix}_"):
+        branch_name = branch_name[len(reco_prefix) + 1:]
+    return str(raw_name), branch_name
+
+
+def _expand_reco_prefixes_from_extra_vars(
+    reco_prefixes: List[str],
+    reco_labels: List[str],
+    extra_vars: Dict[str, List[str]],
+):
+    expanded_prefixes: List[str] = []
+    expanded_labels: List[str] = []
+    expanded_extra_vars: Dict[str, List[str]] = {}
+    reco_sources: Dict[str, str] = {}
+    extra_var_branches: Dict[str, Dict[str, str]] = {}
+
+    for reco_prefix, reco_label in zip(reco_prefixes, reco_labels):
+        extras = extra_vars.get(reco_prefix, [])
+
+        parsed = []
+        for raw_name in extras:
+            logical_name, branch_name = _split_extra_var_entry(raw_name, reco_prefix)
+            parsed.append((logical_name, branch_name))
+
+        grouped_variants: Dict[str, Dict[str, str]] = {}
+        for logical_name, branch_name in parsed:
+            if "_" not in branch_name:
+                continue
+            var_name, variant = branch_name.split("_", 1)
+            grouped_variants.setdefault(var_name, {})[variant] = branch_name
+
+        split_candidates = [var_name for var_name, variants in grouped_variants.items() if len(variants) > 1]
+
+        if len(split_candidates) != 1:
+            expanded_prefixes.append(reco_prefix)
+            expanded_labels.append(reco_label)
+            expanded_extra_vars[reco_prefix] = [logical_name for logical_name, _ in parsed]
+            reco_sources[reco_prefix] = reco_prefix
+            extra_var_branches[reco_prefix] = {
+                logical_name: branch_name for logical_name, branch_name in parsed
+            }
+            continue
+
+        split_var = split_candidates[0]
+        split_variants = grouped_variants[split_var]
+
+        static_entries = [
+            (logical_name, branch_name)
+            for logical_name, branch_name in parsed
+            if not ("_" in branch_name and branch_name.split("_", 1)[0] == split_var)
+        ]
+
+        for variant, branch_name in split_variants.items():
+            new_prefix = f"{reco_prefix}_{variant}"
+            expanded_prefixes.append(new_prefix)
+            expanded_labels.append(f"{reco_label} {variant}" if reco_label else variant)
+            expanded_extra_vars[new_prefix] = [split_var] + [name for name, _ in static_entries]
+            reco_sources[new_prefix] = reco_prefix
+            extra_var_branches[new_prefix] = {
+                split_var: branch_name,
+                **{name: branch for name, branch in static_entries},
+            }
+
+    return expanded_prefixes, expanded_labels, expanded_extra_vars, reco_sources, extra_var_branches
+
+
 def _parse_turnon_vars(obj: Any, bins_lookup: Dict[str, np.ndarray]):
     """
     YAML format:
@@ -204,6 +272,18 @@ def load_run_config(path: str | Path) -> RunConfig:
     data["extra_vars"] = _normalize_extra_vars(
         data.get("extra_vars"),
         data.get("reco_prefixes", []),
+    )
+
+    (
+        data["reco_prefixes"],
+        data["reco_labels"],
+        data["extra_vars"],
+        data["reco_sources"],
+        data["extra_var_branches"],
+    ) = _expand_reco_prefixes_from_extra_vars(
+        data.get("reco_prefixes", []),
+        data.get("reco_labels", []),
+        data["extra_vars"],
     )
 
     turnon_variables = data.pop("turnon_variables", None)
