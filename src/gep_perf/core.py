@@ -1418,6 +1418,8 @@ class ResponseInterpolator:
     def __init__(self, response_centers, response_errors, pt_bins, eta_bins, debug=None):
         self.eta_bins = eta_bins
         self.interpolators = []
+        self.interp_ranges = []
+        self.endpoint_values = []
         self.debug = debug
         
         # Reshape the 1D response array into (n_eta_bins, n_pt_bins)
@@ -1429,8 +1431,6 @@ class ResponseInterpolator:
         truth_centers = 0.5 * (pt_bins[1:] + pt_bins[:-1])
         reco_centers = truth_centers[np.newaxis, :] * resp_2d
         
-        pt_reco = []
-        
         plt.clf()
         for i_eta in range(n_eta):
             R = resp_2d[i_eta]
@@ -1440,7 +1440,9 @@ class ResponseInterpolator:
             
             if np.sum(valid) < 3:
                 # Fallback: return identity
-                self.interpolators.append(identity_response)
+                self.interpolators.append(None)
+                self.interp_ranges.append(None)
+                self.endpoint_values.append(None)
             else:
                 # Create smoothing spline for R(log(Reco_pT))
                 x = np.log(reco_centers[i_eta][valid])
@@ -1448,23 +1450,30 @@ class ResponseInterpolator:
                 order = np.argsort(x)
                 x = x[order]
                 y = y[order]
-                s = 1e-4 * len(x)
 
-                f = make_smoothing_spline(x, y, lam=s)
-                flin = interp1d(
-                    np.log(reco_centers[i_eta][valid]), 
-                    R[valid], 
-                    kind='linear', 
-                    bounds_error=False, 
-                    fill_value=(R[valid][0], R[valid][-1])
-                )
-                self.interpolators.append(f)
+                lam = 1e-5 * len(x)
+
+                spline = make_smoothing_spline(x, y, lam=lam)
+
+                # Clamp to endpoint values outside fitted domain.
+                x0, x1 = x[0], x[-1]
+                y_lo = y[0]
+                y_hi = y[-1]
+
+                self.interpolators.append(spline)
+                self.interp_ranges.append((x0, x1))
+                self.endpoint_values.append((y_lo, y_hi))
+                x_eval = np.clip(x, x0, x1)
+                y_eval = spline(x_eval)
+                y_plot = np.where(x < x0, y_lo, np.where(x > x1, y_hi, y_eval))
+
                 plt.plot(x,
-                         f(x),
+                         y_plot,
                          color='C%i'%i_eta, 
                          label=r"$%.2f<\eta<%.2f$"%(eta_bins[i_eta],eta_bins[i_eta+1])
                         )
                 plt.scatter(x,y,color='C%i'%i_eta, alpha=0.5)
+                del x, y, order, spline, y_lo, y_hi, lam, x0, x1, x_eval, y_eval, y_plot
             
             # Clean up per-iteration arrays
             del R, valid
@@ -1496,8 +1505,20 @@ class ResponseInterpolator:
         
         for ie in range(len(self.eta_bins)-1):
             mask = (eta_indices == ie)
-            if np.any(mask):
-                out_resp_flat[mask] = self.interpolators[ie](np.log(np.array(pt[mask])))
+            if not np.any(mask):
+                continue
+
+            spline = self.interpolators[ie]
+            if spline is None:
+                out_resp_flat[mask] = 1.0
+                continue
+
+            log_pt = np.log(np.array(pt[mask]))
+            x0, x1 = self.interp_ranges[ie]
+            y0, y1 = self.endpoint_values[ie]
+            log_pt_eval = np.clip(log_pt, x0, x1)
+            y_eval = spline(log_pt_eval)
+            out_resp_flat[mask] = np.where(log_pt < x0, y0, np.where(log_pt > x1, y1, y_eval))
         
         # Clean up numpy intermediates
         del pt, eta, eta_indices
@@ -2080,6 +2101,7 @@ def overlay_full_effs(results, suffix="", nobj=1, xmax=300.):
                      marker=marker, color='C%i'%i, linestyle='none', alpha=0.5, markersize=4,
                      label=result_reco_label(r))
     plt.ylabel(r"Background rate [kHz]")
+    plt.ylim(1,9e4)
     plt.yscale('log')
     plt.xlabel(r"%s $p_T$ [GeV]"%numtext[nobj])
     plt.legend(bbox_to_anchor=(1.05, 1))
@@ -2097,6 +2119,7 @@ def overlay_full_effs(results, suffix="", nobj=1, xmax=300.):
                      marker=marker, color='C%i'%i, linestyle='none', alpha=0.5, markersize=4,
                      label=result_reco_label(r))
     plt.ylabel(r"Background rate [kHz]")
+    plt.ylim(1,9e4)
     plt.yscale('log')
     plt.xlabel(r"Signal efficiency")
     plt.title(numtext[nobj]+" "+results[0].name)

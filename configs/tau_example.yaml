@@ -10,19 +10,41 @@ background_weights:
 - 3.656677112
 - 0.0
 reco_prefixes:
-- AntiKt1GepCellsE6LSB40G4SIG2TowerAlgJets
-- AntiKt1GepCellsE6LSB80G4SIG2TowerAlgJets
-- AntiKt1GepCellsE6LSB40G4SIG4TowerAlgJets
-- AntiKt1GepCellsE6LSB80G4SIG4TowerAlgJets
+- AntiKt1GEPCellsE6LSB40G4SIG2TowerJets
+- AntiKt1GEPCellsE6LSB80G4SIG2TowerJets
+- AntiKt1GEPCellsE6LSB40G4SIG4TowerJets
+- AntiKt1GEPCellsE6LSB80G4SIG4TowerJets
+- AntiKt1GEPCellsE6LSB40G4SIG2TowerSKJets
+- AntiKt1GEPCellsE6LSB80G4SIG2TowerSKJets
+- AntiKt1GEPCellsE6LSB40G4SIG4TowerSKJets
+- AntiKt1GEPCellsE6LSB80G4SIG4TowerSKJets
 - L1_eTauRoISim
 - L1_jFexSRJetRoI
-- AntiKt1CaloTopoClusters422AlgJets
-- AntiKt1OfflineCellsTowerAlgJets
-- AntiKt3OfflineCellsTowerAlgJets
+- AntiKt1CaloTopoClusters422Jets
+- AntiKt1OfflineCellsTowerJets
+- AntiKt3OfflineCellsTowerJets
+reco_labels:
+- "AK1 GEP CellTower (LSB=40 GeV, 2 sigma)"
+- "AK1 GEP CellTower (LSB=80 GeV, 2 sigma)"
+- "AK1 GEP CellTower (LSB=40 GeV, 4 sigma)"
+- "AK1 GEP CellTower (LSB=80 GeV, 4 sigma)"
+- "AK1 GEP CellTower, SK (LSB=40 GeV, 2 sigma)"
+- "AK1 GEP CellTower, SK (LSB=80 GeV, 2 sigma)"
+- "AK1 GEP CellTower, SK (LSB=40 GeV, 4 sigma)"
+- "AK1 GEP CellTower, SK (LSB=80 GeV, 4 sigma)"
+- "eFEX Tau"
+- "jFEX Jet"
+- "AK1 422 Topocluster"
+- "AK1 Offline CellTower"
+- "AK3 Offline CellTower"
 truth_prefix: truth_tau
 truth_suffix: _vis
 match_dict:
   pt_reco_names:
+  - pt
+  - pt
+  - pt
+  - pt
   - pt
   - pt
   - pt

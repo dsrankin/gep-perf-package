@@ -41,7 +41,7 @@ def load_from_yaml(res_paths: list[str], plotdir: str | None = None, name: str =
         results.append(core.load_run_result(res_path))
                
     # Convenience overlays
-    core.overlay_efficiency(results, f"{plot_label}_n{nobj}", plot_text, nobj, xmax=xmax, noerr=noerr)
+    core.overlay_efficiency(results, f"{plot_label}_{name}_n{nobj}", plot_text, nobj, xmax=xmax, noerr=noerr)
     if do_full_eff:
         core.overlay_full_effs(results, suffix=f"_{name}{nobj}", nobj=nobj, xmax=xmax)
     if do_resp_resol:
