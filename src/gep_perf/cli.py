@@ -23,7 +23,7 @@ def run_from_yaml(config_path: str | Path, plotdir: str | None = None, resdir: s
     # Save one file per (reco, nobj, selection) result
     for r in results:
         suffix = "rate"+str(int(r.rate))  if r.fixrate else "pt"+str(int(r.threshold))
-        out = Path(core.resdir) / f"{r.name}_{r.reco}_n{r.nobj}{r.sel_label}_{suffix}.npz"
+        out = Path(core.resdir) / f"{r.name}{r.turnon_var}_{r.reco}_n{r.nobj}{r.sel_label}_{suffix}.npz"
         core.save_run_result(r, str(out))
 
     return results

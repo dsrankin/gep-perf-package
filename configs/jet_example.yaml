@@ -76,6 +76,13 @@ selectors:
     dr_threshold: 0.7
 - name: hh_mass_window_selector
   label: _hhmass
+turnon_variables:
+- name: truth_pt
+  label: "Truth $p_T$ [GeV]"
+  bins: truth_pt_bins
+- name: dijet_mass
+  label: "Truth $m_{jj}$ [GeV]"
+  bins: {start: 0, stop: 1000, step: 25}
 truth_pt_bins:
 - 20.0
 - 22.0

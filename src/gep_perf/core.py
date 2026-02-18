@@ -54,7 +54,8 @@ class RunConfig:
     rates: list[float]
     triggers :list[list[float]]
     extra_vars: dict[str, list[str]]
-    turnon_vars: list[Callable[[ak.Array, int], ak.Array]]
+    turnon_vars: list[str]
+    turnon_fns: list[Callable[[ak.Array, int], ak.Array]]
     turnon_var_labels: list[str]
     turnon_bins: list[np.ndarray]
     tree: str = "ntuple"
@@ -78,6 +79,8 @@ class RunConfig:
             raise ValueError(f"Number of selectors ({len(self.sels)}) and selector labels ({len(self.sel_labels)}) must be the same length")
         if len(self.nobjs)!=len(self.triggers):
             raise ValueError(f"Number of objects ({len(self.nobjs)}) and triggers ({len(self.triggers)}) must be the same length")
+        if len(self.turnon_vars)!=len(self.turnon_fns):
+            raise ValueError(f"Number of turn-on variables ({len(self.turnon_vars)}) and functions ({len(self.turnon_fns)}) must be the same length")
         if len(self.turnon_vars)!=len(self.turnon_var_labels):
             raise ValueError(f"Number of turn-on variables ({len(self.turnon_vars)}) and labels ({len(self.turnon_var_labels)}) must be the same length")
         if len(self.turnon_vars)!=len(self.turnon_bins):
@@ -105,6 +108,7 @@ class RunResult:
     response_corr: dict
     resol_uncorr: dict
     resol_corr: dict
+    turnon_var: str
     turnon_label: str
     turnon_bins: np.ndarray
 
@@ -1750,8 +1754,9 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
             threshold,actual_eff = compute_pt_threshold(bkg_pairs[reco_prefix], rate_eff, config.nobjs[n]) #in kHz
             print(f"For {reco_prefix}, n={config.nobjs[n]}, target rate efficiency of {rate_eff:.6f}, threshold of {threshold:.6f} gives actual rate efficiency of {actual_eff:.6f}")
 
-            for turnon_fn, turnon_label, turnon_bins in zip(
+            for turnon_var, turnon_fn, turnon_label, turnon_bins in zip(
                 config.turnon_vars,
+                config.turnon_fns,
                 config.turnon_var_labels,
                 config.turnon_bins,
             ):
@@ -1792,6 +1797,7 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
                             response_corr=response_corr,
                             resol_uncorr=resol_uncorr,
                             resol_corr=resol_corr,
+                            turnon_var=turnon_var,
                             turnon_label=turnon_label,
                             turnon_bins=turnon_bins,
                         )
@@ -1801,8 +1807,9 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
             for threshold in config.triggers[n]:
                 rate, actual_eff = compute_rate(bkg_pairs[reco_prefix], threshold, config.nobjs[n])
                 print(f"For {reco_prefix}, n={config.nobjs[n]}, trigger threshold of {threshold:.1f} gives actual rate efficiency of {actual_eff:.6f} (rate {rate:.6f} kHz)")
-                for turnon_fn, turnon_label, turnon_bins in zip(
+                for turnon_var, turnon_fn, turnon_label, turnon_bins in zip(
                     config.turnon_vars,
+                    config.turnon_fns,
                     config.turnon_var_labels,
                     config.turnon_bins,
                 ):
@@ -1840,6 +1847,7 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
                                 response_corr=response_corr,
                                 resol_uncorr=resol_uncorr,
                                 resol_corr=resol_corr,
+                                turnon_var=turnon_var,
                                 turnon_label=turnon_label,
                                 turnon_bins=turnon_bins,
                             )
@@ -1930,13 +1938,15 @@ def save_run_result(result: RunResult, path):
         response_corr=np.array(result.response_corr, dtype=object),
         resol_uncorr=np.array(result.resol_uncorr, dtype=object),
         resol_corr=np.array(result.resol_corr, dtype=object),
+        turnon_var=result.turnon_var,
         turnon_label=result.turnon_label,
         turnon_bins=result.turnon_bins,
     )
 
 def load_run_result(path):
     data = np.load(path, allow_pickle=True)
-    turnon_label = data["turnon_label"].item() if "turnon_label" in data else "truth_pt"
+    turnon_var = data["turnon_var"].item() if "turnon_var" in data else "truth_pt"
+    turnon_label = data["turnon_label"].item() if "turnon_label" in data else "Truth p_{T}"
     turnon_bins = data["turnon_bins"] if "turnon_bins" in data else data["truth_pt_bins"]
     return RunResult(
         name=data["name"].item(),
@@ -1959,6 +1969,7 @@ def load_run_result(path):
         response_corr=data["response_corr"],
         resol_uncorr=data["resol_uncorr"],
         resol_corr=data["resol_corr"],
+        turnon_var=turnon_var,
         turnon_label=turnon_label,
         turnon_bins=turnon_bins,
     )
@@ -2390,9 +2401,9 @@ def dijet_mass_turnon_var(pairs, nobj, pt_min=0.0, coll="truth"):
     dphi = ak.where(phi1 - phi2 > np.pi, phi1 - phi2 - 2 * np.pi, phi1 - phi2)
     dphi = ak.where(dphi < -np.pi, dphi + 2 * np.pi, dphi)
     m2 = 2.0 * pt1 * pt2 * (np.cosh(deta) - np.cos(dphi))
-    mass = ak.sqrt(m2)
+    mass = np.sqrt(m2)
 
-    abs_deta = ak.abs(deta)
+    abs_deta = np.abs(deta)
     max_idx = ak.argmax(abs_deta, axis=1, keepdims=True)
     mass_max = ak.flatten(mass[max_idx], axis=1)
 

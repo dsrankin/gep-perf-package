@@ -129,6 +129,7 @@ def _parse_turnon_vars(obj: Any, bins_lookup: Dict[str, np.ndarray]):
     if obj is None:
         return [truth_pt_turnon_var], ["Truth $p_T$ [GeV]"], [bins_lookup["truth_pt_bins"]]
 
+    vars_in = []
     vars_out = []
     labels = []
     bins_out = []
@@ -150,6 +151,7 @@ def _parse_turnon_vars(obj: Any, bins_lookup: Dict[str, np.ndarray]):
             raise ValueError(
                 f"Unknown turn-on variable '{name}'. Known variables: {sorted(TURNON_VARIABLES)}"
             )
+        vars_in.append("" if name=="truth_pt" else "_"+name)
         fn = TURNON_VARIABLES[name]
         if kwargs:
             def _wrapped(pairs, nobj, _fn=fn, _kwargs=kwargs):
@@ -170,7 +172,7 @@ def _parse_turnon_vars(obj: Any, bins_lookup: Dict[str, np.ndarray]):
         else:
             bins_out.append(_parse_bins(bins_spec))
 
-    return vars_out, labels, bins_out
+    return vars_in, vars_out, labels, bins_out
 
 
 def load_run_config(path: str | Path) -> RunConfig:
@@ -207,13 +209,14 @@ def load_run_config(path: str | Path) -> RunConfig:
     )
 
     turnon_variables = data.pop("turnon_variables", None)
-    turnon_vars, turnon_labels, turnon_bins = _parse_turnon_vars(
+    turnon_vars, turnon_fns, turnon_labels, turnon_bins = _parse_turnon_vars(
         turnon_variables,
         {
             "truth_pt_bins": data["truth_pt_bins"],
             "truth_eta_bins": data["truth_eta_bins"],
         },
     )
+    data.setdefault("turnon_fns", turnon_fns)
     data.setdefault("turnon_vars", turnon_vars)
     data.setdefault("turnon_var_labels", turnon_labels)
     data.setdefault("turnon_bins", turnon_bins)
