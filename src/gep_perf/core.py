@@ -2386,6 +2386,23 @@ def hh_mass_window_selector(pairs, m_min=75., m_max=175., coll='reco', debug=0, 
 
     return event_sel
 
+
+def eratio_selector(pairs, threshold=0.65):
+    """
+    Select events where the leading reco eRatio is below ``threshold``.
+
+    If ``reco_eRatio`` is not available for the current collection, this
+    selector is a no-op and all events pass.
+    """
+    if "reco_eRatio" not in ak.fields(pairs):
+        return np.ones(len(pairs), dtype=bool)
+
+    reco_eratio = pairs["reco_eRatio"]
+    if isinstance(reco_eratio, ak.Array):
+        reco_eratio = ak.firsts(reco_eratio)
+
+    return ak.to_numpy(ak.fill_none(reco_eratio < threshold, False))
+
 # turn-on variable functions
 def truth_pt_turnon_var(pairs, nobj):
     return select_kth(pairs, "truth_pt", "truth_pt", nobj)
