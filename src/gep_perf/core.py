@@ -2027,10 +2027,11 @@ def overlay_efficiency(results, suffix="", titletxt="", nobj=1, xmax=-1., noerr=
     plt.clf()
 
     numtext = {
-        1:"Leading",
-        2:"Subleading",
-        3:"Third Leading",
-        4:"Fourth Leading"
+        0:"",
+        1:"Leading ",
+        2:"Subleading ",
+        3:"Third Leading ",
+        4:"Fourth Leading "
     }   
     
     params = {}
@@ -2039,14 +2040,16 @@ def overlay_efficiency(results, suffix="", titletxt="", nobj=1, xmax=-1., noerr=
         turnon_bins = getattr(r, "turnon_bins", r.truth_pt_bins)
         turnon_label = getattr(r, "turnon_label", "Truth $p_T$ [GeV]")
         turnon_centers = 0.5*(turnon_bins[:-1]+turnon_bins[1:])
-        xmask = (turnon_centers < xmax) if xmax>0. else np.ones(len(turnon_centers))
+        xmask = (turnon_centers < xmax) if xmax>0. else np.ones(len(turnon_centers),dtype=bool)
         params[i],_ = fit_logistic(turnon_centers[xmask], r.signal_efficiency[xmask], np.mean(r.signal_efficiency_error,axis=0)[xmask])
         label_full = result_reco_label(r)+", "+r.name+r' [$p_T$>'+('%.1f'%r.threshold)+'] ($\\sigma$='+('%.2f'%(1./params[i][1]))+', $p_T^{98\\%}$='+('%.2f'%(params[i][2]+np.log(49)/params[i][1]))+')'
         plt.errorbar(turnon_centers[xmask], r.signal_efficiency[xmask], None if noerr else r.signal_efficiency_error[:,xmask], marker=marker, label=label_full, color='C%i'%i, capsize=3, capthick=2, linestyle='none', mfc='none', alpha=0.5, markersize=4)
-        plt.plot(turnon_centers[xmask], logistic_function(turnon_centers[xmask],*params[i]), color='C%i'%i, linestyle='dashed')
+        if params[i][0]==-1:
+            plt.plot(turnon_centers[xmask], logistic_function(turnon_centers[xmask],*params[i]), color='C%i'%i, linestyle='dashed')
 
-    plt.xlabel(r"%s %s"%(numtext[nobj], turnon_label))
+    plt.xlabel(r"%s%s"%(numtext[nobj], turnon_label))
     plt.ylabel("Signal efficiency")
+    plt.ylim(0,1.1)
     plt.legend(bbox_to_anchor=(1.05, 1),title=titletxt)
     plt.grid(True)
     plt.savefig(plotdir+'/efficiency%s.pdf'%suffix, bbox_inches='tight')
@@ -2061,10 +2064,12 @@ def overlay_efficiency(results, suffix="", titletxt="", nobj=1, xmax=-1., noerr=
         params_adj,_ = fit_logistic(turnon_centers[shiftmask]-(params[i][2]+np.log(49)/params[i][1]), r.signal_efficiency[shiftmask], np.mean(r.signal_efficiency_error,axis=0)[shiftmask])
         label_full = result_reco_label(r)+", "+r.name+r' [$p_T$>'+('%.1f'%r.threshold)+'] ($\\hat{\\sigma}$='+('%.2f'%(1./params_adj[1]))+', $\\hat{p}_T^{98\\%}$='+('%.2f'%(params_adj[2]+np.log(49)/params_adj[1]))+')'
         plt.errorbar(turnon_centers[shiftmask]-(params[i][2]+np.log(49)/params[i][1]), r.signal_efficiency[shiftmask], None if noerr else r.signal_efficiency_error[:,shiftmask], marker=marker, label=label_full, color='C%i'%i, capsize=3, capthick=2, linestyle='none', mfc='none', alpha=0.5, markersize=4)
-        plt.plot(turnon_centers[shiftmask]-(params[i][2]+np.log(49)/params[i][1]), logistic_function(turnon_centers[shiftmask]-(params[i][2]+np.log(49)/params[i][1]),*params_adj), color='C%i'%i, linestyle='dashed')
+        if params[i][0]==-1:
+            plt.plot(turnon_centers[shiftmask]-(params[i][2]+np.log(49)/params[i][1]), logistic_function(turnon_centers[shiftmask]-(params[i][2]+np.log(49)/params[i][1]),*params_adj), color='C%i'%i, linestyle='dashed')
 
-    plt.xlabel(r"%s Truth $\Delta p_T$ [GeV]"%numtext[nobj])
+    plt.xlabel(r"%s$\Delta$ %s"%(numtext[nobj],turnon_label))
     plt.ylabel("Signal efficiency")
+    plt.ylim(0,1.1)
     plt.legend(bbox_to_anchor=(1.05, 1),title=titletxt)
     plt.grid(True)
     plt.savefig(plotdir+'/efficiency%s_corr.pdf'%suffix, bbox_inches='tight')
@@ -2106,7 +2111,7 @@ def overlay_resp_resol(results, corr=False, prefix=""):
         plt.grid(True)
         plt.savefig(plotdir+'/'+prefix+'resol'+("_corr" if corr else "")+'_eta_%.2f_%.2f.pdf'%(r.truth_eta_bins[ie],r.truth_eta_bins[ie+1]), bbox_inches='tight')
 
-def overlay_full_effs(results, suffix="", nobj=1, xmax=300.):
+def overlay_full_effs(results, suffix="", nobj=1, xmax=-1.):
     plt.clf()
 
     numtext = {
@@ -2117,7 +2122,7 @@ def overlay_full_effs(results, suffix="", nobj=1, xmax=300.):
     }   
     
     for i,r in enumerate(results):
-        xmask = r.truth_pt_bins<xmax
+        xmask = (r.truth_pt_bins<xmax) if xmax>0. else np.ones(len(r.truth_pt_bins),dtype=bool)
         marker = get_efficiency_marker(i)
         plt.errorbar(r.truth_pt_bins[xmask],
                      r.full_sig_efficiency[xmask],
@@ -2133,6 +2138,7 @@ def overlay_full_effs(results, suffix="", nobj=1, xmax=300.):
     plt.clf()
     
     for i,r in enumerate(results):
+        xmask = (r.truth_pt_bins<xmax) if xmax>0. else np.ones(len(r.truth_pt_bins),dtype=bool)
         marker = get_efficiency_marker(i)
         plt.errorbar(r.truth_pt_bins[xmask],
                      r.full_bkg_efficiency[xmask]*31_000.,
@@ -2150,6 +2156,7 @@ def overlay_full_effs(results, suffix="", nobj=1, xmax=300.):
     plt.clf()
     
     for i,r in enumerate(results):
+        xmask = (r.truth_pt_bins<xmax) if xmax>0. else np.ones(len(r.truth_pt_bins),dtype=bool)
         marker = get_efficiency_marker(i)
         plt.errorbar(r.full_sig_efficiency,
                      r.full_bkg_efficiency*31_000.,

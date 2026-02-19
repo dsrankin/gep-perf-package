@@ -30,7 +30,7 @@ def run_from_yaml(config_path: str | Path, plotdir: str | None = None, resdir: s
 
 
 def load_from_yaml(res_paths: list[str], plotdir: str | None = None, name: str = "", plot_label: str = "", plot_text: str = "", 
-        nobj: int = 1, xmax: float = 200., noerr: bool = False, do_full_eff: bool = False, do_resp_resol: bool = False):
+        nobj: int = 1, xmax: float = -1., noerr: bool = False, do_full_eff: bool = False, do_resp_resol: bool = False):
 
     if plotdir is not None:
         core.plotdir = plotdir
@@ -39,9 +39,11 @@ def load_from_yaml(res_paths: list[str], plotdir: str | None = None, name: str =
     results = []
     for res_path in res_paths:
         results.append(core.load_run_result(res_path))
+
+    rnobj = results[0].nobj
                
     # Convenience overlays
-    core.overlay_efficiency(results, f"{plot_label}_{name}_n{nobj}", plot_text, nobj, xmax=xmax, noerr=noerr)
+    core.overlay_efficiency(results, f"{plot_label}_{name}_n{rnobj}", plot_text, nobj, xmax=xmax, noerr=noerr)
     if do_full_eff:
         core.overlay_full_effs(results, suffix=f"_{name}{nobj}", nobj=nobj, xmax=xmax)
     if do_resp_resol:
