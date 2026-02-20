@@ -415,15 +415,36 @@ def match_reco_truth(
     reco_sources = reco_sources or {}
     extra_var_branches = extra_var_branches or {}
 
+    # Prefer variant-specific reco branches when they exist in the input tree.
+    # This fixes cases where expanded reco prefixes (e.g. from extra_vars split)
+    # should read `<expanded_prefix>_et/eta/phi` instead of the base source.
+    with uproot.open(files[0]) as ftmp:
+        available_branches = set(ftmp[tree_name].keys())
+
     reco_extra_branches = {}
 
     reco_branches = {}
     for i, reco_prefix in enumerate(reco_prefixes):
-        source_prefix = reco_sources.get(reco_prefix, reco_prefix)
+        mapped_source_prefix = reco_sources.get(reco_prefix, reco_prefix)
+        source_prefix = mapped_source_prefix
+
+        if mapped_source_prefix != reco_prefix:
+            mapped_pt_branch = f"{mapped_source_prefix}_{pt_reco_names[i]}"
+            expanded_pt_branch = f"{reco_prefix}_{pt_reco_names[i]}"
+            if expanded_pt_branch in available_branches:
+                source_prefix = reco_prefix
+            elif mapped_pt_branch not in available_branches:
+                source_prefix = reco_prefix
+
         extra_branch_map = {}
         for extra_var in extra_vars_by_prefix[reco_prefix]:
             source_extra_var = extra_var_branches.get(reco_prefix, {}).get(extra_var, extra_var)
-            extra_branch_map[extra_var] = f"{source_prefix}_{source_extra_var}"
+            extra_branch = f"{source_prefix}_{source_extra_var}"
+            if extra_branch not in available_branches and mapped_source_prefix != source_prefix:
+                fallback_branch = f"{mapped_source_prefix}_{source_extra_var}"
+                if fallback_branch in available_branches:
+                    extra_branch = fallback_branch
+            extra_branch_map[extra_var] = extra_branch
         reco_extra_branches[reco_prefix] = extra_branch_map
 
         reco_branches[reco_prefix] = [
@@ -1697,7 +1718,6 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
         
     for n in range(len(config.nobjs)):
         for reco_prefix, reco_label in zip(config.reco_prefixes, config.reco_labels):
-
             if n==0:
                 
                 # compute uncorrected response
