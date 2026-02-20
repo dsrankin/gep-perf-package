@@ -80,23 +80,23 @@ gep-perf plot perf_results/Jet_dijet_mass_*SKJets_n4_boosted_rate100.npz --plotd
 
 ## Taus
 
-gep-perf plot perf_results/Tau_*{422Jets,TowerJets,eTauRoISim,jFexSRJetRoI}_n1_pt150.npz --plotdir perf_plots --name tau --plotlabel _pt150 --plottext "Tau150" --nobj 1 --xmax 200. --noerr --dofulleff --dorespresol
+gep-perf plot perf_results/Tau_*{422Jets,TowerJets,eTauRoISim,jFexSRJetRoI}_n1_pt150.npz --plotdir perf_plots --name tau --plotlabel _pt150 --plottext "Tau150" --nobj 1 --xmax 230. --noerr --dofulleff --dorespresol
 gep-perf plot perf_results/Tau_*{422Jets,TowerJets,eTauRoISim,jFexSRJetRoI}_n2_pt40.npz --plotdir perf_plots --name tau --plotlabel _pt40 --plottext "2Tau40" --nobj 2 --xmax 100. --noerr --dofulleff
-gep-perf plot perf_results/Tau_*{422Jets,TowerJets,eTauRoISim,jFexSRJetRoI}_n1_rate10.npz --plotdir perf_plots --name tau --plotlabel _rate10 --plottext "10 kHz" --nobj 1 --xmax 200. --noerr
+gep-perf plot perf_results/Tau_*{422Jets,TowerJets,eTauRoISim,jFexSRJetRoI}_n1_rate10.npz --plotdir perf_plots --name tau --plotlabel _rate10 --plottext "10 kHz" --nobj 1 --xmax 230. --noerr
 gep-perf plot perf_results/Tau_*{422Jets,TowerJets,eTauRoISim,jFexSRJetRoI}_n2_rate200.npz --plotdir perf_plots --name tau --plotlabel _rate200 --plottext "200 kHz" --nobj 2 --xmax 100. --noerr
 
 ## SKTaus
 
-gep-perf plot perf_results/Tau_*SKJets_n1_pt150.npz --plotdir perf_plots --name sktau --plotlabel _pt150 --plottext "Tau150" --nobj 1 --xmax 200. --noerr --dofulleff --dorespresol
+gep-perf plot perf_results/Tau_*SKJets_n1_pt150.npz --plotdir perf_plots --name sktau --plotlabel _pt150 --plottext "Tau150" --nobj 1 --xmax 250. --noerr --dofulleff --dorespresol
 gep-perf plot perf_results/Tau_*SKJets_n2_pt40.npz --plotdir perf_plots --name sktau --plotlabel _pt40 --plottext "2Tau40" --nobj 2 --xmax 100. --noerr --dofulleff
-gep-perf plot perf_results/Tau_*SKJets_n1_rate10.npz --plotdir perf_plots --name sktau --plotlabel _rate10 --plottext "10 kHz" --nobj 1 --xmax 200. --noerr
+gep-perf plot perf_results/Tau_*SKJets_n1_rate10.npz --plotdir perf_plots --name sktau --plotlabel _rate10 --plottext "10 kHz" --nobj 1 --xmax 250. --noerr
 gep-perf plot perf_results/Tau_*SKJets_n2_rate200.npz --plotdir perf_plots --name sktau --plotlabel _rate200 --plottext "200 kHz" --nobj 2 --xmax 100. --noerr
 
 ## Eles
 
-gep-perf plot perf_results/Ele_*{TowerJets,eEMRoISim}_n1_pt20.npz --plotdir perf_plots --name ele --plotlabel _pt20 --plottext "EM20" --nobj 1 --xmax 200. --noerr --dofulleff --dorespresol
-gep-perf plot perf_results/Ele_*{TowerJets,eEMRoISim}_n2_pt20.npz --plotdir perf_plots --name ele --plotlabel _pt20 --plottext "2EM20" --nobj 2 --xmax 100. --noerr --dofulleff
-gep-perf plot perf_results/Ele_*{TowerJets,eEMRoISim}_n1_rate50.npz --plotdir perf_plots --name ele --plotlabel _rate50 --plottext "50 kHz" --nobj 1 --xmax 200. --noerr
-gep-perf plot perf_results/Ele_*{TowerJets,eEMRoISim}_n2_rate50.npz --plotdir perf_plots --name ele --plotlabel _rate50 --plottext "50 kHz" --nobj 2 --xmax 100. --noerr
+gep-perf plot perf_results/Ele_*{TowerJets,eEMRoISim*}_n1_pt20.npz --plotdir perf_plots --name ele --plotlabel _pt20 --plottext "EM20" --nobj 1 --xmax 100. --noerr --dofulleff --dorespresol
+gep-perf plot perf_results/Ele_*{TowerJets,eEMRoISim*}_n2_pt20.npz --plotdir perf_plots --name ele --plotlabel _pt20 --plottext "2EM20" --nobj 2 --xmax 100. --noerr --dofulleff
+gep-perf plot perf_results/Ele_*{TowerJets,eEMRoISim*}_n1_rate50.npz --plotdir perf_plots --name ele --plotlabel _rate50 --plottext "50 kHz" --nobj 1 --xmax 100. --noerr
+gep-perf plot perf_results/Ele_*{TowerJets,eEMRoISim*}_n2_rate50.npz --plotdir perf_plots --name ele --plotlabel _rate50 --plottext "50 kHz" --nobj 2 --xmax 100. --noerr
 
 tar -cvz -f perf_plots.tar.gz perf_plots/
