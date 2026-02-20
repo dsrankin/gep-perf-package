@@ -115,6 +115,8 @@ def _normalize_extra_vars(obj: Any, reco_prefixes: List[str]) -> Dict[str, List[
         return {prefix: [obj] for prefix in reco_prefixes}
     raise TypeError(f"Unsupported extra_vars format: {type(obj)}")
 
+
+
 def _split_extra_var_entry(raw_name: str, reco_prefix: str) -> tuple[str, str]:
     branch_name = str(raw_name)
     if branch_name.startswith(f"{reco_prefix}_"):
@@ -273,10 +275,14 @@ def load_run_config(path: str | Path) -> RunConfig:
         if k in data and not isinstance(data[k], list):
             data[k] = [data[k]]
 
+    original_reco_prefixes = list(data.get("reco_prefixes", []))
+
     data["extra_vars"] = _normalize_extra_vars(
         data.get("extra_vars"),
-        data.get("reco_prefixes", []),
+        original_reco_prefixes,
     )
+
+    original_pt_reco_names = data.get("match_dict", {}).get("pt_reco_names")
 
     (
         data["reco_prefixes"],
@@ -285,10 +291,31 @@ def load_run_config(path: str | Path) -> RunConfig:
         data["reco_sources"],
         data["extra_var_branches"],
     ) = _expand_reco_prefixes_from_extra_vars(
-        data.get("reco_prefixes", []),
+        original_reco_prefixes,
         data.get("reco_labels", []),
         data["extra_vars"],
     )
+
+    data["match_dict"] = dict(data.get("match_dict", {}))
+    if original_pt_reco_names is not None:
+        if not isinstance(original_pt_reco_names, (list, tuple)):
+            raise TypeError(
+                f"match_dict.pt_reco_names must be a list/tuple when provided, got: {type(original_pt_reco_names)}"
+            )
+        if len(original_pt_reco_names) != len(original_reco_prefixes):
+            raise ValueError(
+                "match_dict.pt_reco_names must match the number of reco_prefixes before extra_vars expansion "
+                f"({len(original_pt_reco_names)} != {len(original_reco_prefixes)})"
+            )
+
+        pt_name_by_prefix = {
+            reco_prefix: str(pt_name)
+            for reco_prefix, pt_name in zip(original_reco_prefixes, original_pt_reco_names)
+        }
+        data["match_dict"]["pt_reco_names"] = [
+            pt_name_by_prefix[data["reco_sources"].get(prefix, prefix)]
+            for prefix in data["reco_prefixes"]
+        ]
 
     turnon_variables = data.pop("turnon_variables", None)
     turnon_vars, turnon_fns, turnon_labels, turnon_bins = _parse_turnon_vars(

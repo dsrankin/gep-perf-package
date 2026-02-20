@@ -377,6 +377,8 @@ def _normalize_extra_vars(reco_prefixes, extra_vars):
         return {prefix: [extra_vars] for prefix in reco_prefixes}
     raise TypeError(f"Unsupported extra_vars format: {type(extra_vars)}")
 
+
+
 def match_reco_truth(
     files,
     weights=None,
@@ -401,8 +403,14 @@ def match_reco_truth(
 ):
 
     if pt_reco_names is None:
-        pt_reco_names=["pt"]*len(reco_prefixes)
-    
+        pt_reco_names = ["pt"] * len(reco_prefixes)
+    elif not isinstance(pt_reco_names, (list, tuple)):
+        raise TypeError(f"pt_reco_names must be a list or tuple, got: {type(pt_reco_names)}")
+    elif len(pt_reco_names) != len(reco_prefixes):
+        raise ValueError(
+            f"pt_reco_names ({len(pt_reco_names)}) and reco prefixes ({len(reco_prefixes)}) must be the same length"
+        )
+
     extra_vars_by_prefix = _normalize_extra_vars(reco_prefixes, extra_vars)
     reco_sources = reco_sources or {}
     extra_var_branches = extra_var_branches or {}
