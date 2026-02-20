@@ -461,7 +461,23 @@ def match_reco_truth(
     branches = truth_branches
     for reco_prefix in reco_prefixes:
         branches = branches + reco_branches[reco_prefix]
-    branches = branches + ["weight","gFEX_rho"]
+    branches = branches + ["weight", "gFEX_rho"]
+    # Expanded reco prefixes can reference the same physical branches.
+    # Deduplicate here so each branch is read/cast only once per chunk.
+    branches = list(dict.fromkeys(branches))
+
+    pt_branches = list(dict.fromkeys([reco_branches[r][0] for r in reco_branches] + truth_branches[:1]))
+    eta_branches = list(dict.fromkeys([reco_branches[r][1] for r in reco_branches] + truth_branches[1:2]))
+    phi_branches = list(dict.fromkeys([reco_branches[r][2] for r in reco_branches] + truth_branches[2:]))
+    extra_branches = list(
+        dict.fromkeys(
+            [
+                extra_branch
+                for reco_prefix in reco_prefixes
+                for extra_branch in reco_branches[reco_prefix][3:]
+            ]
+        )
+    )
 
     # Accumulators for awkward arrays
     event_ids = []
@@ -496,17 +512,13 @@ def match_reco_truth(
         file_rhos = []
 
         for chunk in tqdm(it, total=total_chunks, desc=f"{filename}"):
-            for name in [reco_branches[r][0] for r in reco_branches] + truth_branches[:1]:
+            for name in pt_branches:
                 chunk = ak.with_field(chunk, ak.values_astype(chunk[name] / 1000.0, np.float32), name) # convert to GeV
-            for name in [reco_branches[r][1] for r in reco_branches] + truth_branches[1:2]:
+            for name in eta_branches:
                 chunk = ak.with_field(chunk, ak.values_astype(chunk[name], np.float32), name)
-            for name in [reco_branches[r][2] for r in reco_branches] + truth_branches[2:]:
+            for name in phi_branches:
                 chunk = ak.with_field(chunk, ak.values_astype(chunk[name], np.float32), name)
-            for name in [
-                extra_branch
-                for reco_prefix in reco_prefixes
-                for extra_branch in reco_branches[reco_prefix][3:]
-            ]:
+            for name in extra_branches:
                 chunk = ak.with_field(chunk, ak.values_astype(chunk[name], np.float32), name)
             n_events_chunk = len(chunk[reco_branches[reco_prefixes[0]][0]])
             # Process entire chunk at once
