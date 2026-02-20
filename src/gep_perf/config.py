@@ -197,7 +197,7 @@ def _parse_turnon_vars(obj: Any, bins_lookup: Dict[str, np.ndarray]):
     Returns (turnon_vars, labels, bins)
     """
     if obj is None:
-        return [truth_pt_turnon_var], ["Truth $p_T$ [GeV]"], [bins_lookup["truth_pt_bins"]]
+        return [""], [truth_pt_turnon_var], ["Truth $p_T$ [GeV]"], [bins_lookup["truth_pt_bins"]]
 
     vars_in = []
     vars_out = []
