@@ -2427,7 +2427,7 @@ def eratio_selector(pairs, threshold=0.65):
     if isinstance(reco_eratio, ak.Array):
         reco_eratio = ak.firsts(reco_eratio)
 
-    return ak.to_numpy(ak.fill_none(reco_eratio < threshold, False))
+    return ak.to_numpy(ak.fill_none(reco_eratio > threshold, False))
 
 # turn-on variable functions
 def truth_pt_turnon_var(pairs, nobj):

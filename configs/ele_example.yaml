@@ -146,6 +146,6 @@ triggers:
 - - 10.0
   - 20.0
 extra_vars:
-  L1_eEMRoISim: ["eRatio_E6LSB40G4SIG2","eRatio_E6LSB80G4SIG2","eRatio_E6LSB40G4SIG4","eRatio_E6LSB80G4SIG4","eRatio_OfflineCells"]
+  L1_eEMRoISim: ["Eratio_E6LSB40G4SIG2","Eratio_E6LSB80G4SIG2","Eratio_E6LSB40G4SIG4","Eratio_E6LSB80G4SIG4","Eratio_OfflineCells"]
 tree: ntuple
 dr_max: 0.2
