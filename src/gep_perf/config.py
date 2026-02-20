@@ -171,6 +171,14 @@ def _expand_reco_prefixes_from_extra_vars(
             if not ("_" in branch_name and branch_name.split("_", 1)[0] == split_var)
         ]
 
+        expanded_prefixes.append(reco_prefix)
+        expanded_labels.append(reco_label)
+        expanded_extra_vars[reco_prefix] = [name for name, _ in static_entries]
+        reco_sources[reco_prefix] = reco_prefix
+        extra_var_branches[reco_prefix] = {
+            name: branch for name, branch in static_entries
+        }
+
         for variant, branch_name in split_variants.items():
             new_prefix = f"{reco_prefix}_{variant}"
             expanded_prefixes.append(new_prefix)
