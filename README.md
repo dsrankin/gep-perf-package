@@ -71,6 +71,7 @@ extra_vars:
 - `null_selector`
 - `boosted_truth_selector` (kwargs: `dr_threshold`, `debug`, `chunk_size`)
 - `hh_mass_window_selector`
+- `eratio_selector` (kwargs: `threshold`)
 
 To add more, extend `gep_perf.config.SELECTORS`.
 
