@@ -20,7 +20,7 @@ Outputs:
 
 ## YAML configuration
 
-Top-level keys correspond to the original `RunConfig` dataclass fields, except selections, which are expressed as `selectors`.
+Top-level keys correspond to the original `RunConfig` dataclass fields, except selections, which are expressed as `selectors`. You can also specify a single `rate_selector` that is used for background rejection/rate and for the signal-efficiency numerator only (not the denominator).
 
 Example:
 
@@ -46,6 +46,12 @@ selectors:
     kwargs: {dr_threshold: 0.7}
   - name: hh_mass_window_selector
     label: "_hhmass"
+
+# optional selector used for background rejection/rate and signal numerator only
+rate_selector:
+  name: eratio_selector
+  label: "_eratio"
+  kwargs: {threshold: 0.65}
 
 truth_pt_bins: [20, 22, 24, ...]
 truth_eta_bins: [-4.9, -3.2, ...]

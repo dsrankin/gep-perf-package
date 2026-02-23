@@ -48,6 +48,8 @@ class RunConfig:
     nobjs: list[int]
     sels: list[Callable[[ak.Array], np.ndarray]] #the selections should take in and return an awkward array
     sel_labels: list[str]
+    rate_sel: Callable[[ak.Array], np.ndarray]
+    rate_sel_label: str
     truth_pt_bins: np.ndarray
     truth_eta_bins: np.ndarray
     do_rho_sub: bool
@@ -743,7 +745,7 @@ def weighted_percentile(data, q, weights):
         return np.array(vals.item())
     return vals
 
-def compute_pt_threshold(bkg_pairs, target_eff, nobj, correctors=None):
+def compute_pt_threshold(bkg_pairs, target_eff, nobj, correctors=None, selector=None):
     """
     Compute a reco-pt threshold that yields the requested background efficiency.
 
@@ -777,22 +779,30 @@ def compute_pt_threshold(bkg_pairs, target_eff, nobj, correctors=None):
                 
     reco_pt,reco_eta = select_kths(bkg_pairs, ["reco_pt","reco_eta"], "reco_pt", nobj)
     w = ak.to_numpy(bkg_pairs["weight"])
+    if selector is None:
+        selector = null_selector
+    sel = selector(bkg_pairs)
+    reco_pt_selected = reco_pt[sel]
+    w_selected = w[sel]
 
-    # We want threshold T so that fraction with reco_pt > T == target_eff.
+    if reco_pt_selected.size == 0 or np.sum(w_selected) <= 0:
+        return np.inf, 0.0
+
+    # We want threshold T so that fraction with (reco_pt > T and selector) == target_eff.
     # That means T is the (1-target_eff) quantile of the reco_pt distribution.
     q = 100.0 * (1.0 - target_eff)
 
     # Use numpy.percentile which handles small arrays gracefully.
     #threshold = np.percentile(reco_pt, q, weights=w, method="inverted_cdf")
-    threshold = weighted_percentile(reco_pt, q, w)
+    threshold = weighted_percentile(reco_pt_selected, q, w_selected)
 
     # Compute actual achieved efficiency (strictly greater than threshold)
     # If you prefer >=, change '>' to '>='.
-    actual_eff = np.sum(w[reco_pt > threshold]) / np.sum(w)
+    actual_eff = np.sum(w[(reco_pt > threshold) & sel]) / np.sum(w)
 
     return float(threshold), float(actual_eff)
 
-def compute_rate(bkg_pairs, threshold, nobj, correctors=None, full_rate=31_000.):
+def compute_rate(bkg_pairs, threshold, nobj, correctors=None, full_rate=31_000., selector=None):
     """
     Compute a rate from the given threshold and nobj.
 
@@ -825,10 +835,13 @@ def compute_rate(bkg_pairs, threshold, nobj, correctors=None, full_rate=31_000.)
                 
     reco_pt,reco_eta = select_kths(bkg_pairs, ["reco_pt","reco_eta"], "reco_pt", nobj)
     w = ak.to_numpy(bkg_pairs["weight"])
+    if selector is None:
+        selector = null_selector
+    sel = selector(bkg_pairs)
 
     # Compute actual achieved efficiency (strictly greater than threshold)
     # If you prefer >=, change '>' to '>='.
-    actual_eff = np.sum(w[reco_pt > threshold]) / np.sum(w)
+    actual_eff = np.sum(w[(reco_pt > threshold) & sel]) / np.sum(w)
 
     return float(full_rate*actual_eff), float(actual_eff)
 
@@ -927,6 +940,7 @@ def compute_signal_efficiency(
     turnon_bins,
     nobj,
     selector,
+    numerator_selector=None,
     turnon_values=None,
     weights=False,
     inclusive=False,
@@ -946,6 +960,10 @@ def compute_signal_efficiency(
         Use inclusive=True to treat reco_pt >= threshold as passing.
     turnon_bins : array_like
         Bin edges for the turn-on variable (e.g. np.linspace(0,2000,41)).
+    selector : callable
+        Selection applied to both numerator and denominator.
+    numerator_selector : callable
+        Additional selection applied only to the numerator together with the pt threshold.
     weights : bool
         Use weights.
     inclusive : bool
@@ -985,19 +1003,26 @@ def compute_signal_efficiency(
         turnon_values = select_kth(sig_pairs, "truth_pt", "truth_pt", nobj)
 
 
-    esel = selector(sig_pairs)
-    reco_pt = reco_pt[esel]
-    reco_eta = reco_eta[esel]
-    turnon_values = turnon_values[esel]
-    w = ak.to_numpy(sig_pairs["weight"])[esel]
+    if numerator_selector is None:
+        numerator_selector = null_selector
+
+    denominator_sel = selector(sig_pairs)
+    numerator_sel = numerator_selector(sig_pairs)
+
+    reco_pt = reco_pt[denominator_sel]
+    reco_eta = reco_eta[denominator_sel]
+    turnon_values = turnon_values[denominator_sel]
+    numerator_sel = numerator_sel[denominator_sel]
+    w = ak.to_numpy(sig_pairs["weight"])[denominator_sel]
+
+    if inclusive:
+        passed_mask = (reco_pt >= threshold) & numerator_sel
+    else:
+        passed_mask = (reco_pt > threshold) & numerator_sel
 
     if not weights:
         # Unweighted histograms
         total_counts, edges = np.histogram(turnon_values, bins=turnon_bins)
-        if inclusive:
-            passed_mask = (reco_pt >= threshold)
-        else:
-            passed_mask = (reco_pt > threshold)
         passed_counts, _ = np.histogram(turnon_values[passed_mask], bins=turnon_bins)
 
         efficiency, errlo, errhi = teff(passed_counts, total_counts)
@@ -1819,7 +1844,12 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
                 
             # Compute threshold for fixed background efficiency
             rate_eff = config.rates[n]/31_000.
-            threshold,actual_eff = compute_pt_threshold(bkg_pairs[reco_prefix], rate_eff, config.nobjs[n]) #in kHz
+            threshold,actual_eff = compute_pt_threshold(
+                bkg_pairs[reco_prefix],
+                rate_eff,
+                config.nobjs[n],
+                selector=config.rate_sel,
+            ) #in kHz
             print(f"For {reco_prefix}, n={config.nobjs[n]}, target rate efficiency of {rate_eff:.6f}, threshold of {threshold:.6f} gives actual rate efficiency of {actual_eff:.6f}")
 
             for turnon_var, turnon_fn, turnon_label, turnon_bins in zip(
@@ -1837,6 +1867,7 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
                         turnon_bins,
                         config.nobjs[n],
                         config.sels[s],
+                        numerator_selector=config.rate_sel,
                         turnon_values=turnon_values,
                     )
                     
@@ -1873,7 +1904,12 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
                 
                 
             for threshold in config.triggers[n]:
-                rate, actual_eff = compute_rate(bkg_pairs[reco_prefix], threshold, config.nobjs[n])
+                rate, actual_eff = compute_rate(
+                    bkg_pairs[reco_prefix],
+                    threshold,
+                    config.nobjs[n],
+                    selector=config.rate_sel,
+                )
                 print(f"For {reco_prefix}, n={config.nobjs[n]}, trigger threshold of {threshold:.1f} gives actual rate efficiency of {actual_eff:.6f} (rate {rate:.6f} kHz)")
                 for turnon_var, turnon_fn, turnon_label, turnon_bins in zip(
                     config.turnon_vars,
@@ -1890,6 +1926,7 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
                             turnon_bins,
                             config.nobjs[n],
                             config.sels[s],
+                            numerator_selector=config.rate_sel,
                             turnon_values=turnon_values,
                         )
 
