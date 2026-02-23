@@ -1,23 +1,23 @@
 name: Tau
 signal_files:
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_ytt_feb14_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_ytt_feb20_EXT0/outputGEPNtuple.root
 background_files:
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz0_feb14_EXT0/outputGEPNtuple.root
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz1_feb14_EXT0/outputGEPNtuple.root
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_ytt_feb14_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz0_feb20_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz1_feb20_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_ytt_feb20_EXT0/outputGEPNtuple.root
 background_weights:
 - 76.66268004
 - 3.656677112
 - 0.0
 reco_prefixes:
-- AntiKt1GEPCellsE6LSB40G4SIG2TowerJets
-- AntiKt1GEPCellsE6LSB80G4SIG2TowerJets
-- AntiKt1GEPCellsE6LSB40G4SIG4TowerJets
-- AntiKt1GEPCellsE6LSB80G4SIG4TowerJets
-- AntiKt1GEPCellsE6LSB40G4SIG2TowerSKJets
-- AntiKt1GEPCellsE6LSB80G4SIG2TowerSKJets
-- AntiKt1GEPCellsE6LSB40G4SIG4TowerSKJets
-- AntiKt1GEPCellsE6LSB80G4SIG4TowerSKJets
+- AntiKt1GepCellsE6LSB40G4SIG2TowerJets
+- AntiKt1GepCellsE6LSB80G4SIG2TowerJets
+- AntiKt1GepCellsE6LSB40G4SIG4TowerJets
+- AntiKt1GepCellsE6LSB80G4SIG4TowerJets
+- AntiKt1GepCellsE6LSB40G4SIG2TowerSKJets
+- AntiKt1GepCellsE6LSB80G4SIG2TowerSKJets
+- AntiKt1GepCellsE6LSB40G4SIG4TowerSKJets
+- AntiKt1GepCellsE6LSB80G4SIG4TowerSKJets
 - L1_eTauRoISim
 - L1_jFexSRJetRoI
 - AntiKt1CaloTopoClusters422Jets

@@ -1,13 +1,13 @@
 name: Jet
 signal_files:
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_hhbbbb_feb14_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_hhbbbb_feb20_EXT0/outputGEPNtuple.root
 background_files:
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz0_feb14_EXT0/outputGEPNtuple.root
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz1_feb14_EXT0/outputGEPNtuple.root
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz2_feb14_EXT0/outputGEPNtuple.root
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz3_feb14_EXT0/outputGEPNtuple.root
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz4_feb14_EXT0/outputGEPNtuple.root
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz5_feb14_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz0_feb20_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz1_feb20_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz2_feb20_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz3_feb20_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz4_feb20_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz5_feb20_EXT0/outputGEPNtuple.root
 background_weights:
 - 76.66268004
 - 3.656677112
@@ -16,14 +16,14 @@ background_weights:
 - 0.0
 - 0.0
 reco_prefixes:
-- AntiKt4GEPCellsE6LSB40G4SIG2TowerJets
-- AntiKt4GEPCellsE6LSB80G4SIG2TowerJets
-- AntiKt4GEPCellsE6LSB40G4SIG4TowerJets
-- AntiKt4GEPCellsE6LSB80G4SIG4TowerJets
-- AntiKt4GEPCellsE6LSB40G4SIG2TowerSKJets
-- AntiKt4GEPCellsE6LSB80G4SIG2TowerSKJets
-- AntiKt4GEPCellsE6LSB40G4SIG4TowerSKJets
-- AntiKt4GEPCellsE6LSB80G4SIG4TowerSKJets
+- AntiKt4GepCellsE6LSB40G4SIG2TowerJets
+- AntiKt4GepCellsE6LSB80G4SIG2TowerJets
+- AntiKt4GepCellsE6LSB40G4SIG4TowerJets
+- AntiKt4GepCellsE6LSB80G4SIG4TowerJets
+- AntiKt4GepCellsE6LSB40G4SIG2TowerSKJets
+- AntiKt4GepCellsE6LSB80G4SIG2TowerSKJets
+- AntiKt4GepCellsE6LSB40G4SIG4TowerSKJets
+- AntiKt4GepCellsE6LSB80G4SIG4TowerSKJets
 - L1_jFexSRJetRoI
 - AntiKt4CaloTopoClusters422Jets
 - AntiKt4CaloTopoClusters422SKJets
