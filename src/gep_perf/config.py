@@ -95,6 +95,34 @@ def _parse_selectors(obj: Any):
     return sels, labels
 
 
+def _parse_single_selector(obj: Any, default_name: str = "null_selector"):
+    if obj is None:
+        obj = {"name": default_name}
+
+    if isinstance(obj, str):
+        name = obj
+        kwargs = {}
+        label = name
+    elif isinstance(obj, dict):
+        name = obj["name"]
+        kwargs = obj.get("kwargs", {}) or {}
+        label = obj.get("label", name)
+    else:
+        raise TypeError(f"Invalid selector entry: {obj!r}")
+
+    if name not in SELECTORS:
+        raise ValueError(
+            f"Unknown selector '{name}'. Known selectors: {sorted(SELECTORS)}"
+        )
+
+    fn = SELECTORS[name]
+    if kwargs:
+        def _wrapped(pairs, _fn=fn, _kwargs=kwargs):
+            return _fn(pairs, **_kwargs)
+        return _wrapped, label
+    return fn, label
+
+
 def _normalize_extra_vars(obj: Any, reco_prefixes: List[str]) -> Dict[str, List[str]]:
     if obj is None:
         return {prefix: [] for prefix in reco_prefixes}
@@ -262,6 +290,9 @@ def load_run_config(path: str | Path) -> RunConfig:
     selectors = data.pop("selectors", None)
     sels, sel_labels = _parse_selectors(selectors)
 
+    rate_selector = data.pop("rate_selector", None)
+    rate_sel, rate_sel_label = _parse_single_selector(rate_selector)
+
     # bins
     if "truth_pt_bins" in data:
         data["truth_pt_bins"] = _parse_bins(data["truth_pt_bins"])
@@ -271,6 +302,8 @@ def load_run_config(path: str | Path) -> RunConfig:
     # Allow sel_labels override (but keep YAML selectors as source of truth by default)
     data.setdefault("sel_labels", sel_labels)
     data.setdefault("sels", sels)
+    data.setdefault("rate_sel", rate_sel)
+    data.setdefault("rate_sel_label", rate_sel_label)
 
     # default empty dicts/lists
     data.setdefault("match_dict", {})
