@@ -790,7 +790,7 @@ def compute_pt_threshold(bkg_pairs, target_eff, nobj, correctors=None, selector=
 
     # We want threshold T so that fraction with (reco_pt > T and selector) == target_eff.
     # That means T is the (1-target_eff) quantile of the reco_pt distribution.
-    q = 100.0 * (1.0 - target_eff)
+    q = 100.0 * (1.0 - target_eff) * np.sum(w_selected) / np.sum(w)
 
     # Use numpy.percentile which handles small arrays gracefully.
     #threshold = np.percentile(reco_pt, q, weights=w, method="inverted_cdf")
