@@ -23,7 +23,7 @@ def run_from_yaml(config_path: str | Path, plotdir: str | None = None, resdir: s
     # Save one file per (reco, nobj, selection) result
     for r in results:
         suffix = "rate"+str(int(r.rate))  if r.fixrate else "pt"+str(int(r.threshold))
-        out = Path(core.resdir) / f"{r.name}{r.turnon_var}_{r.reco}_n{r.nobj}{r.sel_label}_{suffix}.npz"
+        out = Path(core.resdir) / f"{r.name}{r.turnon_var}_{r.reco}_n{r.nobj}{r.sel_label}{r.rate_sel_label}_{suffix}.npz"
         core.save_run_result(r, str(out))
 
     return results
@@ -87,8 +87,6 @@ def main(argv=None):
     if args.cmd == "plot":
         load_from_yaml(args.respaths, plotdir=args.plotdir, name=args.name, plot_label=args.plotlabel, plot_text=args.plottext, 
                 nobj=args.nobj, xmax=args.xmax, noerr=args.noerr, do_full_eff=args.dofulleff, do_resp_resol=args.dorespresol)
-                            #cfg.sel_labels[s]+("_fixrate" if tr==0 else "_pt%i"%cfg.triggers[n][tr-1])+"_jet%i"%(n+1),
-                            #("Fixed Rate: %i kHz"%cfg.rates[n]) if tr==0 else ("%iJ%i"%(cfg.nobjs[n],cfg.triggers[n][tr-1])),
 
 
 if __name__ == "__main__":

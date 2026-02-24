@@ -94,14 +94,14 @@ gep-perf plot perf_results/Tau_*SKJets_n2_rate200.npz --plotdir perf_plots --nam
 
 ## Eles
 
-gep-perf plot perf_results/Ele_*{TowerJets,eEMRoISim*}_n1_pt20.npz --plotdir perf_plots --name ele --plotlabel _pt20 --plottext "EM20" --nobj 1 --xmax 100. --noerr --dofulleff --dorespresol
-gep-perf plot perf_results/Ele_*{TowerJets,eEMRoISim*}_n2_pt20.npz --plotdir perf_plots --name ele --plotlabel _pt20 --plottext "2EM20" --nobj 2 --xmax 100. --noerr --dofulleff
-gep-perf plot perf_results/Ele_*{TowerJets,eEMRoISim*}_n1_rate50.npz --plotdir perf_plots --name ele --plotlabel _rate50 --plottext "50 kHz" --nobj 1 --xmax 100. --noerr
-gep-perf plot perf_results/Ele_*{TowerJets,eEMRoISim*}_n2_rate50.npz --plotdir perf_plots --name ele --plotlabel _rate50 --plottext "50 kHz" --nobj 2 --xmax 100. --noerr
+gep-perf plot perf_results/Ele_*{TowerJets,eEMRoISim}_n1_pt20.npz --plotdir perf_plots --name ele --plotlabel _pt20 --plottext "EM20" --nobj 1 --xmax 100. --noerr --dofulleff --dorespresol
+gep-perf plot perf_results/Ele_*{TowerJets,eEMRoISim}_n2_pt20.npz --plotdir perf_plots --name ele --plotlabel _pt20 --plottext "2EM20" --nobj 2 --xmax 100. --noerr --dofulleff
+gep-perf plot perf_results/Ele_*{TowerJets,eEMRoISim}_n1_rate50.npz --plotdir perf_plots --name ele --plotlabel _rate50 --plottext "50 kHz" --nobj 1 --xmax 100. --noerr
+gep-perf plot perf_results/Ele_*{TowerJets,eEMRoISim}_n2_rate50.npz --plotdir perf_plots --name ele --plotlabel _rate50 --plottext "50 kHz" --nobj 2 --xmax 100. --noerr
 
-gep-perf plot perf_results/Ele_*{TowerJets,eEMRoISim*}_n1_eratio_pt20.npz --plotdir perf_plots --name eratio_ele --plotlabel _eratio_pt20 --plottext "EM20 (Eratio)" --nobj 1 --xmax 100. --noerr --dofulleff
-gep-perf plot perf_results/Ele_*{TowerJets,eEMRoISim*}_n2_eratio_pt20.npz --plotdir perf_plots --name eratio_ele --plotlabel _eratio_pt20 --plottext "2EM20 (Eratio)" --nobj 2 --xmax 100. --noerr --dofulleff
-gep-perf plot perf_results/Ele_*{TowerJets,eEMRoISim*}_n1_eratio_rate50.npz --plotdir perf_plots --name eratio_ele --plotlabel _eratio_rate50 --plottext "50 kHz (Eratio)" --nobj 1 --xmax 100. --noerr
-gep-perf plot perf_results/Ele_*{TowerJets,eEMRoISim*}_n2_eratio_rate50.npz --plotdir perf_plots --name eratio_ele --plotlabel _eratio_rate50 --plottext "50 kHz (Eratio)" --nobj 2 --xmax 100. --noerr
+gep-perf plot perf_results/Ele_*{TowerJets,eEMRoISim*}_n1_eratio_pt20.npz --plotdir perf_plots --name eratio_ele --plotlabel _eratio_pt20 --plottext "EM20" --nobj 1 --xmax 100. --noerr --dofulleff
+gep-perf plot perf_results/Ele_*{TowerJets,eEMRoISim*}_n2_eratio_pt20.npz --plotdir perf_plots --name eratio_ele --plotlabel _eratio_pt20 --plottext "2EM20" --nobj 2 --xmax 100. --noerr --dofulleff
+gep-perf plot perf_results/Ele_*{TowerJets,eEMRoISim*}_n1_eratio_rate50.npz --plotdir perf_plots --name eratio_ele --plotlabel _eratio_rate50 --plottext "50 kHz" --nobj 1 --xmax 100. --noerr
+gep-perf plot perf_results/Ele_*{TowerJets,eEMRoISim*}_n2_eratio_rate50.npz --plotdir perf_plots --name eratio_ele --plotlabel _eratio_rate50 --plottext "50 kHz" --nobj 2 --xmax 100. --noerr
 
 tar -cvz -f perf_plots.tar.gz perf_plots/

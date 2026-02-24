@@ -62,10 +62,13 @@ nobjs:
 selectors:
 - name: null_selector
   label: ''
+rate_selectors:
+- name: null_selector
+  label: ''
 - name: eratio_selector
   label: _eratio
   kwargs:
-    threshold: 0.65
+    threshold: 0.6
 truth_pt_bins:
 - 1.0
 - 2.0
