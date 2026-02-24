@@ -334,10 +334,6 @@ def match_awkward_full(r_pt, r_eta, r_phi, t_pt, t_eta, t_phi, dr_max, riso, tis
     truth_pt_out = ak.concatenate([t_pt, unmatched_truth_pt], axis=1)
     truth_eta_out = ak.concatenate([t_eta, unmatched_truth_eta], axis=1)
     truth_phi_out = ak.concatenate([t_phi, unmatched_truth_phi], axis=1)
-    
-    #print('n_total',np.histogram(ak.to_numpy(ak.count(reco_pt_out, axis=-1))))
-    #print('n_reco',np.histogram(ak.to_numpy(ak.count_nonzero(reco_pt_out>0, axis=-1))))
-    #print('n_truth',np.histogram(ak.to_numpy(ak.count_nonzero(truth_pt_out>0, axis=-1))))
 
     output = {
         'reco_pt': reco_pt_out,
@@ -794,7 +790,6 @@ def compute_pt_threshold(bkg_pairs, target_eff, nobj, correctors=None, selector=
     # We want threshold T so that fraction with (reco_pt > T and selector) == target_eff.
     # That means T is the (1-target_eff) quantile of the reco_pt distribution.
     q = 100.0 * (1.0 - target_eff * np.sum(w) / np.sum(w_selected))
-    print(target_eff,np.sum(w_selected) / np.sum(w))
 
     # Use numpy.percentile which handles small arrays gracefully.
     #threshold = np.percentile(reco_pt, q, weights=w, method="inverted_cdf")
@@ -1214,11 +1209,6 @@ def compute_response(pairs, pt_bins, eta_bins, min_pt=None, respcorrs=None, debu
     # response in a single buffer
     response = energy(reco_pt, reco_eta).astype(np.float32, copy=False)
     response /= energy(truth_pt, truth_eta).astype(np.float32, copy=False)
-    
-    #print(debug)
-    #print('\t',reco_pt[:10])
-    #print('\t',truth_pt[:10])
-    #print('\t',response[:10])
 
     n_pt = len(pt_bins) - 1
     n_eta = len(eta_bins) - 1
