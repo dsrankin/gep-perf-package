@@ -64,7 +64,7 @@ def _parse_selectors(obj: Any):
     Returns (sels, labels)
     """
     if obj is None:
-        return [], []
+        return [SELECTORS["null_selector"]], [""]
     if isinstance(obj, (str, dict)):
         obj = [obj]
     sels = []
@@ -262,16 +262,10 @@ def load_run_config(path: str | Path) -> RunConfig:
     data: Dict[str, Any] = yaml.safe_load(path.read_text())
 
     selectors = data.pop("selectors", None)
-    if selectors is None:
-        selectors = ["null_selector"]
     sels, sel_labels = _parse_selectors(selectors)
 
-    rate_selector = data.pop("rate_selector", None)
-    if rate_selector is None:
-        rate_selector = data.pop("rate_selectors", None)
-    if rate_selector is None:
-        rate_selector = ["null_selector"]
-    rate_sels, rate_sel_labels = _parse_selectors(rate_selector)
+    rate_selectors = data.pop("rate_selectors", None)
+    rate_sels, rate_sel_labels = _parse_selectors(rate_selectors)
 
     # bins
     if "truth_pt_bins" in data:

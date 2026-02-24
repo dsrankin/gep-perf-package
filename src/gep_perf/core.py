@@ -2194,7 +2194,7 @@ def overlay_resp_resol(results, corr=False, prefix=""):
                          marker='o', color='C%i'%i, capsize=3, capthick=2, linestyle='none', alpha=0.5, markersize=4,
                          label=result_reco_label(r)+", "+r.name)
 
-        plt.ylabel(r"%sResponse (Truth $p_T$ / Reco $p_T$)"%("Corrected " if corr else ""))
+        plt.ylabel(r"%sResponse (Reco $p_T$ / Truth $p_T$)"%("Corrected " if corr else ""))
         plt.xlabel(r"Truth $p_T$ [GeV]")
         plt.title(r"$%.2f<\eta<%.2f$"%(r.truth_eta_bins[ie],r.truth_eta_bins[ie+1]))
         plt.legend(bbox_to_anchor=(1.05, 1))
