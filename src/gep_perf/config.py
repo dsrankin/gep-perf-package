@@ -65,6 +65,8 @@ def _parse_selectors(obj: Any):
     """
     if obj is None:
         return [], []
+    if isinstance(obj, (str, dict)):
+        obj = [obj]
     sels = []
     labels = []
     for item in obj:
@@ -260,9 +262,15 @@ def load_run_config(path: str | Path) -> RunConfig:
     data: Dict[str, Any] = yaml.safe_load(path.read_text())
 
     selectors = data.pop("selectors", None)
+    if selectors is None:
+        selectors = ["null_selector"]
     sels, sel_labels = _parse_selectors(selectors)
 
-    rate_selector = data.pop("rate_selectors", None)
+    rate_selector = data.pop("rate_selector", None)
+    if rate_selector is None:
+        rate_selector = data.pop("rate_selectors", None)
+    if rate_selector is None:
+        rate_selector = ["null_selector"]
     rate_sels, rate_sel_labels = _parse_selectors(rate_selector)
 
     # bins
