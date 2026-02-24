@@ -1063,6 +1063,7 @@ def compute_full_efficiency(
     pt_bins,
     nobj,
     selector,
+    numerator_selector=None,
     weights=False,
     correctors=None,
 ):
@@ -1077,6 +1078,8 @@ def compute_full_efficiency(
           column 1 = truth_pt
     pt_bins : array_like
         Bin edges for pt (e.g. np.linspace(0,2000,41)).
+    numerator_selector : callable
+        Additional selection applied only to the numerator.
     weights : bool
         Use weights.
 
@@ -1103,16 +1106,25 @@ def compute_full_efficiency(
     reco_pt, reco_eta = select_kths(pairs, ["reco_pt","reco_eta"], "reco_pt", nobj)
     truth_pt = select_kth(pairs, "truth_pt", "truth_pt", nobj)
 
-    esel = selector(pairs, nobj)
-    reco_pt = reco_pt[esel]
-    reco_eta = reco_eta[esel]
-    truth_pt = truth_pt[esel]
-    w = ak.to_numpy(pairs["weight"])[esel]
+    if numerator_selector is None:
+        numerator_selector = null_selector
+
+    denominator_sel = selector(pairs, nobj)
+    numerator_sel = numerator_selector(pairs, nobj)
+
+    reco_pt = reco_pt[denominator_sel]
+    reco_eta = reco_eta[denominator_sel]
+    truth_pt = truth_pt[denominator_sel]
+    numerator_sel = numerator_sel[denominator_sel]
+    w = ak.to_numpy(pairs["weight"])[denominator_sel]
+
+    reco_pt_num = reco_pt[numerator_sel]
     
     if not weights:
         total_counts, _ = np.histogram(reco_pt, bins=np.concatenate([pt_bins,[1e9]])) # add overflow bin
         all_count = np.sum(total_counts)
-        passed_counts = np.array([np.sum(total_counts[i:]) for i in range(len(pt_bins))])
+        passed_counts, _ = np.histogram(reco_pt_num, bins=np.concatenate([pt_bins,[1e9]])) # add overflow bin
+        passed_counts = np.array([np.sum(passed_counts[i:]) for i in range(len(pt_bins))])
         for i in range(len(pt_bins)):
             total_counts[i] = all_count
 
@@ -1128,8 +1140,11 @@ def compute_full_efficiency(
         total_w2, _ = np.histogram(reco_pt, bins=np.concatenate([pt_bins,[1e9]]), weights=w*w)
         all_w = np.sum(total_w)
         all_w2 = np.sum(total_w2)
-        passed_w = np.array([np.sum(total_w[i:]) for i in range(len(pt_bins))])
-        passed_w2 = np.array([np.sum(total_w2[i:]) for i in range(len(pt_bins))])
+        w_num = w[numerator_sel]
+        passed_w, _ = np.histogram(reco_pt_num, bins=np.concatenate([pt_bins,[1e9]]), weights=w_num) # add overflow bin
+        passed_w2, _ = np.histogram(reco_pt_num, bins=np.concatenate([pt_bins,[1e9]]), weights=w_num*w_num)
+        passed_w = np.array([np.sum(passed_w[i:]) for i in range(len(pt_bins))])
+        passed_w2 = np.array([np.sum(passed_w2[i:]) for i in range(len(pt_bins))])
         for i in range(len(pt_bins)):
             total_w[i] = np.sum(all_w)
             total_w2[i] = np.sum(all_w2)
@@ -1877,8 +1892,22 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
                             turnon_values=turnon_values,
                         )
                         
-                        full_sig_eff, full_sig_err = compute_full_efficiency(sig_pairs[reco_prefix], config.truth_pt_bins, config.nobjs[n], config.sels[s], weights=False)
-                        full_bkg_eff, full_bkg_err = compute_full_efficiency(bkg_pairs[reco_prefix], config.truth_pt_bins, config.nobjs[n], config.sels[s], weights=True)
+                        full_sig_eff, full_sig_err = compute_full_efficiency(
+                            sig_pairs[reco_prefix],
+                            config.truth_pt_bins,
+                            config.nobjs[n],
+                            config.sels[s],
+                            numerator_selector=config.rate_sels[r],
+                            weights=False,
+                        )
+                        full_bkg_eff, full_bkg_err = compute_full_efficiency(
+                            bkg_pairs[reco_prefix],
+                            config.truth_pt_bins,
+                            config.nobjs[n],
+                            config.sels[s],
+                            numerator_selector=config.rate_sels[r],
+                            weights=True,
+                        )
     
                         results.append(
                             RunResult(
