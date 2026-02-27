@@ -400,11 +400,19 @@ def match_reco_truth(
     extra_vars=None,
     reco_sources=None,
     extra_var_branches=None,
+    met_mode=False,
+    met_truth_prefix="truth_neu",
+    met_reco_ex_name="ex",
+    met_reco_ey_name="ey",
     step_size=10000,
 ):
 
+    if weights is None:
+        weights = [1.0] * len(files)
+
     if pt_reco_names is None:
-        pt_reco_names = ["pt"] * len(reco_prefixes)
+        default_pt_name = "et" if met_mode else "pt"
+        pt_reco_names = [default_pt_name] * len(reco_prefixes)
     elif not isinstance(pt_reco_names, (list, tuple)):
         raise TypeError(f"pt_reco_names must be a list or tuple, got: {type(pt_reco_names)}")
     elif len(pt_reco_names) != len(reco_prefixes):
@@ -416,25 +424,26 @@ def match_reco_truth(
     reco_sources = reco_sources or {}
     extra_var_branches = extra_var_branches or {}
 
-    # Prefer variant-specific reco branches when they exist in the input tree.
-    # This fixes cases where expanded reco prefixes (e.g. from extra_vars split)
-    # should read `<expanded_prefix>_et/eta/phi` instead of the base source.
+    truth_base_prefix = met_truth_prefix if met_mode else truth_prefix
+    truth_branches = [
+        f"{truth_base_prefix}_{pt_truth_name}{truth_suffix}",
+        f"{truth_base_prefix}_{eta_name}{truth_suffix}",
+        f"{truth_base_prefix}_{phi_name}{truth_suffix}",
+    ]
+
     with uproot.open(files[0]) as ftmp:
         available_branches = set(ftmp[tree_name].keys())
 
     reco_extra_branches = {}
-
     reco_branches = {}
     for i, reco_prefix in enumerate(reco_prefixes):
         mapped_source_prefix = reco_sources.get(reco_prefix, reco_prefix)
         source_prefix = mapped_source_prefix
 
+        mapped_pt_branch = f"{mapped_source_prefix}_{pt_reco_names[i]}"
+        expanded_pt_branch = f"{reco_prefix}_{pt_reco_names[i]}"
         if mapped_source_prefix != reco_prefix:
-            mapped_pt_branch = f"{mapped_source_prefix}_{pt_reco_names[i]}"
-            expanded_pt_branch = f"{reco_prefix}_{pt_reco_names[i]}"
-            if expanded_pt_branch in available_branches:
-                source_prefix = reco_prefix
-            elif mapped_pt_branch not in available_branches:
+            if expanded_pt_branch in available_branches or mapped_pt_branch not in available_branches:
                 source_prefix = reco_prefix
 
         extra_branch_map = {}
@@ -452,19 +461,15 @@ def match_reco_truth(
             f"{source_prefix}_{pt_reco_names[i]}",
             f"{source_prefix}_{eta_name}",
             f"{source_prefix}_{phi_name}",
-        ] + [reco_extra_branches[reco_prefix][extra_var] for extra_var in extra_vars_by_prefix[reco_prefix]]
+        ]
+        if met_mode:
+            reco_branches[reco_prefix][1] = f"{source_prefix}_{met_reco_ex_name}"
+            reco_branches[reco_prefix][2] = f"{source_prefix}_{met_reco_ey_name}"
 
-    truth_branches = [
-        f"{truth_prefix}_{pt_truth_name}{truth_suffix}",
-        f"{truth_prefix}_{eta_name}{truth_suffix}",
-        f"{truth_prefix}_{phi_name}{truth_suffix}",
-    ]
-    branches = truth_branches
+    branches = truth_branches + ["weight", "gFEX_rho"]
     for reco_prefix in reco_prefixes:
-        branches = branches + reco_branches[reco_prefix]
-    branches = branches + ["weight", "gFEX_rho"]
-    # Expanded reco prefixes can reference the same physical branches.
-    # Deduplicate here so each branch is read/cast only once per chunk.
+        branches.extend(reco_branches[reco_prefix])
+        branches.extend(reco_extra_branches[reco_prefix].values())
     branches = list(dict.fromkeys(branches))
 
     pt_branches = list(dict.fromkeys([reco_branches[r][0] for r in reco_branches] + truth_branches[:1]))
@@ -475,7 +480,7 @@ def match_reco_truth(
             [
                 extra_branch
                 for reco_prefix in reco_prefixes
-                for extra_branch in reco_branches[reco_prefix][3:]
+                for extra_branch in reco_extra_branches[reco_prefix].values()
             ]
         )
     )
@@ -514,72 +519,88 @@ def match_reco_truth(
 
         for chunk in tqdm(it, total=total_chunks, desc=f"{filename}"):
             for name in pt_branches:
-                chunk = ak.with_field(chunk, ak.values_astype(chunk[name] / 1000.0, np.float32), name) # convert to GeV
+                chunk = ak.with_field(chunk, ak.values_astype(chunk[name] / 1000.0, np.float32), name)
             for name in eta_branches:
                 chunk = ak.with_field(chunk, ak.values_astype(chunk[name], np.float32), name)
             for name in phi_branches:
                 chunk = ak.with_field(chunk, ak.values_astype(chunk[name], np.float32), name)
             for name in extra_branches:
                 chunk = ak.with_field(chunk, ak.values_astype(chunk[name], np.float32), name)
-            n_events_chunk = len(chunk[reco_branches[reco_prefixes[0]][0]])
-            # Process entire chunk at once
-            results = match_chunk_vectorized(
-                chunk,
-                reco_prefixes,
-                reco_branches,
-                truth_branches,
-                dr_max,
-                reco_iso_dr,
-                truth_iso_dr,
-                reco_pt_min,
-                truth_pt_min,
-                pt_min,
-                extra_vars_by_prefix,
-                reco_extra_branches,
-            )
 
-            # Append results (now as awkward arrays)
+            n_events_chunk = len(chunk[truth_branches[0]])
+
+            if met_mode:
+                truth_pt = chunk[truth_branches[0]]
+                truth_phi = chunk[truth_branches[2]]
+                truth_px = truth_pt * np.cos(truth_phi)
+                truth_py = truth_pt * np.sin(truth_phi)
+                truth_met_x = -ak.sum(truth_px, axis=1)
+                truth_met_y = -ak.sum(truth_py, axis=1)
+                truth_met = ak.values_astype(np.sqrt(truth_met_x**2 + truth_met_y**2), np.float32)
+                truth_met_phi = ak.values_astype(np.arctan2(truth_met_y, truth_met_x), np.float32)
+                truth_eta = ak.values_astype(np.zeros(n_events_chunk), np.float32)
+
+                for reco_prefix in reco_prefixes:
+                    reco_et = chunk[reco_branches[reco_prefix][0]]
+                    reco_ex = chunk[reco_branches[reco_prefix][1]]
+                    reco_ey = chunk[reco_branches[reco_prefix][2]]
+                    reco_phi = ak.values_astype(np.arctan2(reco_ey, reco_ex), np.float32)
+
+                    reco_pts[reco_prefix].append(ak.singletons(reco_et))
+                    reco_etas[reco_prefix].append(ak.singletons(truth_eta))
+                    reco_phis[reco_prefix].append(ak.singletons(reco_phi))
+                    truth_pts[reco_prefix].append(ak.singletons(truth_met))
+                    truth_etas[reco_prefix].append(ak.singletons(truth_eta))
+                    truth_phis[reco_prefix].append(ak.singletons(truth_met_phi))
+                    for extra_name, extra_branch in reco_extra_branches[reco_prefix].items():
+                        reco_extras[reco_prefix][extra_name].append(ak.singletons(chunk[extra_branch]))
+            else:
+                results = match_chunk_vectorized(
+                    chunk,
+                    reco_prefixes,
+                    reco_branches,
+                    truth_branches,
+                    dr_max,
+                    reco_iso_dr,
+                    truth_iso_dr,
+                    reco_pt_min,
+                    truth_pt_min,
+                    pt_min,
+                    extra_vars_by_prefix,
+                    reco_extra_branches,
+                )
+                for reco_prefix in reco_prefixes:
+                    reco_pts[reco_prefix].append(results['reco_pt'][reco_prefix])
+                    reco_etas[reco_prefix].append(results['reco_eta'][reco_prefix])
+                    reco_phis[reco_prefix].append(results['reco_phi'][reco_prefix])
+                    truth_pts[reco_prefix].append(results['truth_pt'][reco_prefix])
+                    truth_etas[reco_prefix].append(results['truth_eta'][reco_prefix])
+                    truth_phis[reco_prefix].append(results['truth_phi'][reco_prefix])
+                    for extra_name, extra_values in results['reco_extra'][reco_prefix].items():
+                        reco_extras[reco_prefix][extra_name].append(extra_values)
+
             event_ids.extend(range(event_offset, event_offset + n_events_chunk))
             file_weights.extend(chunk["weight"])
             file_rhos.extend(chunk["gFEX_rho"])
-
-            for reco_prefix in reco_prefixes:
-                #reco_pts[reco_prefix].extend(ak.to_list(results['reco_pt'][reco_prefix])) # old implementation
-                reco_pts[reco_prefix].append(results['reco_pt'][reco_prefix])
-                reco_etas[reco_prefix].append(results['reco_eta'][reco_prefix])
-                reco_phis[reco_prefix].append(results['reco_phi'][reco_prefix])
-                truth_pts[reco_prefix].append(results['truth_pt'][reco_prefix])
-                truth_etas[reco_prefix].append(results['truth_eta'][reco_prefix])
-                truth_phis[reco_prefix].append(results['truth_phi'][reco_prefix])
-                for extra_name, extra_values in results['reco_extra'][reco_prefix].items():
-                    reco_extras[reco_prefix][extra_name].append(extra_values)
-
             event_offset += n_events_chunk
-            
-            #break
 
-            # Force garbage collection 
             del chunk
             gc.collect()
-        
 
         total_weight = np.sum(file_weights)
         file_weights = [f*weight/total_weight for f in file_weights]
         event_weights.extend(file_weights)
-        
         event_rhos.extend(file_rhos)
 
-    for i,f in enumerate(files):
-        process_file(f,weights[i])
-        
-    # Convert everything to an awkward record-of-lists
+    for i, f in enumerate(files):
+        process_file(f, weights[i])
+
     return {
         reco_prefix: ak.zip(
             {
                 "event": ak.Array(event_ids),
                 "weight": ak.Array(event_weights),
-                "rho": ak.fill_none(ak.pad_none(event_rhos, 3, axis=-1, clip=True), 0., axis=-1), # TODO: why is this necessary for zprime?
-                #"reco_pt": ak.Array(reco_pts[reco_prefix]), # old implementation
+                "rho": ak.fill_none(ak.pad_none(event_rhos, 3, axis=-1, clip=True), 0., axis=-1),
                 "reco_pt": ak.concatenate(reco_pts[reco_prefix]),
                 "reco_eta": ak.concatenate(reco_etas[reco_prefix]),
                 "reco_phi": ak.concatenate(reco_phis[reco_prefix]),
