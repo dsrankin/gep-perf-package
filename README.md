@@ -74,6 +74,9 @@ extra_vars:
 
 ### Supported selector names
 
+For MET studies, enable `match_dict.met_mode: true`. In this mode the code builds truth MET from vector truth neutrinos (`truth_neu_pt/eta/phi`) and treats each reco MET collection as a single object per event (using `<prefix>_et`, `<prefix>_ex`, and `<prefix>_ey`). See `configs/met_example.yaml` for a complete example with both fixed-rate and fixed-threshold trigger definitions.
+
+
 - `null_selector`
 - `boosted_truth_selector` (kwargs: `dr_threshold`, `debug`, `chunk_size`)
 - `hh_mass_window_selector`

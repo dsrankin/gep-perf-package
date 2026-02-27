@@ -1,0 +1,59 @@
+name: MET
+signal_files:
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_znunu_feb20_EXT0/outputGEPNtuple.root
+background_files:
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz0_feb20_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz1_feb20_EXT0/outputGEPNtuple.root
+background_weights:
+- 76.66268004
+- 3.656677112
+reco_prefixes:
+- GepMETGepCellsE10LSB40G4SIG4Tower
+- GepMETGepCellsE10LSB80G4SIG4Tower
+- GepMETOfflineCells
+reco_labels:
+- "GEP MET (LSB=40 GeV, 4 sigma)"
+- "GEP MET (LSB=80 GeV, 4 sigma)"
+- "Offline MET"
+truth_prefix: truth_neu
+truth_suffix: ''
+match_dict:
+  met_mode: true
+  pt_reco_names:
+  - et
+  - et
+  - et
+reco_pt_min: 0.0
+truth_pt_min: 0.0
+pt_min: 0.0
+reco_iso_dr: 0.0
+truth_iso_dr: 0.0
+nobjs:
+- 1
+selectors:
+- name: null_selector
+  label: ''
+rate_selectors:
+- name: null_selector
+  label: ''
+turnon_variables:
+- name: truth_pt
+  label: "Truth MET [GeV]"
+  bins: truth_pt_bins
+truth_pt_bins:
+  start: 0
+  stop: 500
+  step: 10
+truth_eta_bins:
+- -0.5
+- 0.5
+do_rho_sub: false
+rates:
+- 50.0
+triggers:
+- - 50.0
+  - 100.0
+  - 150.0
+extra_vars: []
+tree: ntuple
+dr_max: 999.0
