@@ -155,9 +155,6 @@ def match_chunk_vectorized(chunk, reco_prefixes, reco_branches, truth_branches, 
     
     # Apply truth isolation if specified
     t_isolated = compute_isolation_awkward(t_eta, t_phi, truth_iso_dr)
-#         t_pt = t_pt[t_isolated]
-#         t_eta = t_eta[t_isolated]
-#         t_phi = t_phi[t_isolated]
     
     if extra_vars_by_prefix is None:
         extra_vars_by_prefix = {}
@@ -194,9 +191,6 @@ def match_chunk_vectorized(chunk, reco_prefixes, reco_branches, truth_branches, 
         
         # Apply reco isolation if specified
         r_isolated = compute_isolation_awkward(r_eta, r_phi, reco_iso_dr)
-#             r_pt = r_pt[r_isolated]
-#             r_eta = r_eta[r_isolated]
-#             r_phi = r_phi[r_isolated]
 
         if truth_pt_min is not None:
             r_isolated = r_isolated & (r_pt > reco_pt_min)
@@ -401,7 +395,6 @@ def match_reco_truth(
     reco_sources=None,
     extra_var_branches=None,
     met_mode=False,
-    met_truth_prefix="truth_neu",
     met_reco_ex_name="ex",
     met_reco_ey_name="ey",
     step_size=10000,
@@ -424,11 +417,10 @@ def match_reco_truth(
     reco_sources = reco_sources or {}
     extra_var_branches = extra_var_branches or {}
 
-    truth_base_prefix = met_truth_prefix if met_mode else truth_prefix
     truth_branches = [
-        f"{truth_base_prefix}_{pt_truth_name}{truth_suffix}",
-        f"{truth_base_prefix}_{eta_name}{truth_suffix}",
-        f"{truth_base_prefix}_{phi_name}{truth_suffix}",
+        f"{truth_prefix}_{pt_truth_name}{truth_suffix}",
+        f"{truth_prefix}_{eta_name}{truth_suffix}",
+        f"{truth_prefix}_{phi_name}{truth_suffix}",
     ]
 
     with uproot.open(files[0]) as ftmp:
