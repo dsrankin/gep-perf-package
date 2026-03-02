@@ -1,13 +1,13 @@
 name: Jet
 signal_files:
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_hhbbbb_feb20_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_hhbbbb_feb28_EXT0/outputGEPNtuple.root
 background_files:
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz0_feb20_EXT0/outputGEPNtuple.root
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz1_feb20_EXT0/outputGEPNtuple.root
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz2_feb20_EXT0/outputGEPNtuple.root
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz3_feb20_EXT0/outputGEPNtuple.root
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz4_feb20_EXT0/outputGEPNtuple.root
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz5_feb20_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz0_feb28_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz1_feb28_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz2_feb28_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz3_feb28_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz4_feb28_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz5_feb28_EXT0/outputGEPNtuple.root
 background_weights:
 - 76.66268004
 - 3.656677112
@@ -17,26 +17,26 @@ background_weights:
 - 0.0
 reco_prefixes:
 - AntiKt4GepCellsE6LSB40G4SIG2TowerJets
-- AntiKt4GepCellsE6LSB80G4SIG2TowerJets
+- AntiKt4GepCellsE10LSB40G4SIG2TowerJets
 - AntiKt4GepCellsE6LSB40G4SIG4TowerJets
-- AntiKt4GepCellsE6LSB80G4SIG4TowerJets
+- AntiKt4GepCellsE10LSB40G4SIG4TowerJets
 - AntiKt4GepCellsE6LSB40G4SIG2TowerSKJets
-- AntiKt4GepCellsE6LSB80G4SIG2TowerSKJets
+- AntiKt4GepCellsE10LSB40G4SIG2TowerSKJets
 - AntiKt4GepCellsE6LSB40G4SIG4TowerSKJets
-- AntiKt4GepCellsE6LSB80G4SIG4TowerSKJets
+- AntiKt4GepCellsE10LSB40G4SIG4TowerSKJets
 - L1_jFexSRJetRoI
 - AntiKt4CaloTopoClusters422Jets
 - AntiKt4CaloTopoClusters422SKJets
 - AntiKt4OfflineCellsTowerJets
 reco_labels:
-- "AK4 GEP CellTower (LSB=40 GeV, 2 sigma)"
-- "AK4 GEP CellTower (LSB=80 GeV, 2 sigma)"
-- "AK4 GEP CellTower (LSB=40 GeV, 4 sigma)"
-- "AK4 GEP CellTower (LSB=80 GeV, 4 sigma)"
-- "AK4 GEP CellTower, SK (LSB=40 GeV, 2 sigma)"
-- "AK4 GEP CellTower, SK (LSB=80 GeV, 2 sigma)"
-- "AK4 GEP CellTower, SK (LSB=40 GeV, 4 sigma)"
-- "AK4 GEP CellTower, SK (LSB=80 GeV, 4 sigma)"
+- "AK4 GEP CellTower (6 bit E, 2 sigma)"
+- "AK4 GEP CellTower (10 bit E, 2 sigma)"
+- "AK4 GEP CellTower (6 bit E, 4 sigma)"
+- "AK4 GEP CellTower (10 bit E, 4 sigma)"
+- "AK4 GEP CellTower, SK (6 bit E, 2 sigma)"
+- "AK4 GEP CellTower, SK (10 bit E, 2 sigma)"
+- "AK4 GEP CellTower, SK (6 bit E, 4 sigma)"
+- "AK4 GEP CellTower, SK (10 bit E, 4 sigma)"
 - "jFEX Jet"
 - "AK4 422 Topocluster"
 - "AK4 422 Topocluster (SK)"

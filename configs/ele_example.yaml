@@ -1,36 +1,36 @@
 name: Ele
 signal_files:
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_zee_feb20_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_zee_feb28_EXT0/outputGEPNtuple.root
 background_files:
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz0_feb20_EXT0/outputGEPNtuple.root
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz1_feb20_EXT0/outputGEPNtuple.root
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_zee_feb20_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz0_feb28_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz1_feb28_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_zee_feb28_EXT0/outputGEPNtuple.root
 background_weights:
 - 76.66268004
 - 3.656677112
 - 0.0
 reco_prefixes:
 - AntiKt1GepCellsE6LSB40G4SIG2TowerJets
-- AntiKt1GepCellsE6LSB80G4SIG2TowerJets
+- AntiKt1GepCellsE10LSB40G4SIG2TowerJets
 - AntiKt1GepCellsE6LSB40G4SIG4TowerJets
-- AntiKt1GepCellsE6LSB80G4SIG4TowerJets
+- AntiKt1GepCellsE10LSB40G4SIG4TowerJets
 - AntiKt1GepCellsE6LSB40G4SIG2TowerSKJets
-- AntiKt1GepCellsE6LSB80G4SIG2TowerSKJets
+- AntiKt1GepCellsE10LSB40G4SIG2TowerSKJets
 - AntiKt1GepCellsE6LSB40G4SIG4TowerSKJets
-- AntiKt1GepCellsE6LSB80G4SIG4TowerSKJets
+- AntiKt1GepCellsE10LSB40G4SIG4TowerSKJets
 - L1_eEMRoISim
 - AntiKt1CaloTopoClusters422Jets
 - AntiKt1CaloTopoClusters422SKJets
 - AntiKt1OfflineCellsTowerJets
 reco_labels:
-- "AK1 GEP CellTower (LSB=40 GeV, 2 sigma)"
-- "AK1 GEP CellTower (LSB=80 GeV, 2 sigma)"
-- "AK1 GEP CellTower (LSB=40 GeV, 4 sigma)"
-- "AK1 GEP CellTower (LSB=80 GeV, 4 sigma)"
-- "AK1 GEP CellTower, SK (LSB=40 GeV, 2 sigma)"
-- "AK1 GEP CellTower, SK (LSB=80 GeV, 2 sigma)"
-- "AK1 GEP CellTower, SK (LSB=40 GeV, 4 sigma)"
-- "AK1 GEP CellTower, SK (LSB=80 GeV, 4 sigma)"
+- "AK1 GEP CellTower (6 bit E, 2 sigma)"
+- "AK1 GEP CellTower (10 bit E, 2 sigma)"
+- "AK1 GEP CellTower (6 bit E, 4 sigma)"
+- "AK1 GEP CellTower (10 bit E, 4 sigma)"
+- "AK1 GEP CellTower, SK (6 bit E, 2 sigma)"
+- "AK1 GEP CellTower, SK (10 bit E, 2 sigma)"
+- "AK1 GEP CellTower, SK (6 bit E, 4 sigma)"
+- "AK1 GEP CellTower, SK (10 bit E, 4 sigma)"
 - "eFEX EM"
 - "AK1 422 Topocluster"
 - "AK1 422 Topocluster (SK)"
@@ -68,7 +68,7 @@ rate_selectors:
 - name: eratio_selector
   label: _eratio
   kwargs:
-    threshold: 0.6
+    threshold: 0.35
 truth_pt_bins:
 - 1.0
 - 2.0
@@ -149,6 +149,6 @@ triggers:
 - - 10.0
   - 20.0
 extra_vars:
-  L1_eEMRoISim: ["Eratio_E6LSB40G4SIG2","Eratio_E6LSB80G4SIG2","Eratio_E6LSB40G4SIG4","Eratio_E6LSB80G4SIG4","Eratio_OfflineCells"]
+  L1_eEMRoISim: ["Eratio_E6LSB40G4SIG2","Eratio_E10LSB40G4SIG2","Eratio_E6LSB40G4SIG4","Eratio_E10LSB40G4SIG4","Eratio_OfflineCells"]
 tree: ntuple
 dr_max: 0.2
