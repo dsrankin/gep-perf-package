@@ -12,6 +12,8 @@ pip install -e .
 
 ```bash
 gep-perf run configs/jet_example.yaml --plotdir perf_plots --resdir perf_results
+gep-perf run configs/tau_example.yaml --plotdir perf_plots --resdir perf_results
+gep-perf run configs/ele_example.yaml --plotdir perf_plots --resdir perf_results
 ```
 
 Outputs:
