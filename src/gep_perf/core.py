@@ -1126,15 +1126,14 @@ def compute_full_efficiency(
     numerator_sel = numerator_sel[denominator_sel]
     w = ak.to_numpy(pairs["weight"])[denominator_sel]
 
-    reco_pt_num = reco_pt[numerator_sel]
-    
+    thresholds = np.asarray(pt_bins, dtype=float)
+
     if not weights:
-        total_counts, _ = np.histogram(reco_pt, bins=np.concatenate([pt_bins,[1e9]])) # add overflow bin
-        all_count = np.sum(total_counts)
-        passed_counts, _ = np.histogram(reco_pt_num, bins=np.concatenate([pt_bins,[1e9]])) # add overflow bin
-        passed_counts = np.array([np.sum(passed_counts[i:]) for i in range(len(pt_bins))])
-        for i in range(len(pt_bins)):
-            total_counts[i] = all_count
+        total_counts = np.full(len(thresholds), reco_pt.shape[0], dtype=float)
+        passed_counts = np.array([
+            np.count_nonzero((reco_pt >= thr) & numerator_sel)
+            for thr in thresholds
+        ], dtype=float)
 
         efficiency, errlo, errhi = teff(passed_counts, total_counts)
 
@@ -1143,19 +1142,17 @@ def compute_full_efficiency(
         if w.shape[0] != reco_pt.shape[0]:
             raise ValueError("weights must have same length as pairs")
             
-        # Weighted histograms
-        total_w, _ = np.histogram(reco_pt, bins=np.concatenate([pt_bins,[1e9]]), weights=w) # add overflow bin
-        total_w2, _ = np.histogram(reco_pt, bins=np.concatenate([pt_bins,[1e9]]), weights=w*w)
-        all_w = np.sum(total_w)
-        all_w2 = np.sum(total_w2)
-        w_num = w[numerator_sel]
-        passed_w, _ = np.histogram(reco_pt_num, bins=np.concatenate([pt_bins,[1e9]]), weights=w_num) # add overflow bin
-        passed_w2, _ = np.histogram(reco_pt_num, bins=np.concatenate([pt_bins,[1e9]]), weights=w_num*w_num)
-        passed_w = np.array([np.sum(passed_w[i:]) for i in range(len(pt_bins))])
-        passed_w2 = np.array([np.sum(passed_w2[i:]) for i in range(len(pt_bins))])
-        for i in range(len(pt_bins)):
-            total_w[i] = np.sum(all_w)
-            total_w2[i] = np.sum(all_w2)
+        w2 = w * w
+        total_w = np.full(len(thresholds), np.sum(w), dtype=float)
+        total_w2 = np.full(len(thresholds), np.sum(w2), dtype=float)
+        passed_w = np.array([
+            np.sum(w[(reco_pt >= thr) & numerator_sel])
+            for thr in thresholds
+        ], dtype=float)
+        passed_w2 = np.array([
+            np.sum(w2[(reco_pt >= thr) & numerator_sel])
+            for thr in thresholds
+        ], dtype=float)
 
         efficiency, errlo, errhi = teff(
             passed_w,
