@@ -14,6 +14,7 @@ from .core import (
     boosted_truth_selector,
     hh_mass_window_selector,
     eratio_selector,
+    barrel_selector,
     truth_pt_turnon_var,
     dijet_mass_turnon_var,
 )
@@ -25,6 +26,7 @@ SELECTORS = {
     "boosted_truth_selector": boosted_truth_selector,
     "hh_mass_window_selector": hh_mass_window_selector,
     "eratio_selector": eratio_selector,
+    "barrel_selector": barrel_selector,
 }
 
 # Turn-on variable registry for YAML -> callable resolution

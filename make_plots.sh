@@ -104,14 +104,24 @@ gep-perf plot perf_results/Ele_*{TowerJets,eEMRoISim*}_n2_eratio_pt20.npz --plot
 gep-perf plot perf_results/Ele_*{TowerJets,eEMRoISim*}_n1_eratio_rate50.npz --plotdir perf_plots --name eratio_ele --plotlabel _eratio_rate50 --plottext "50 kHz" --nobj 1 --xmax 100. --noerr
 gep-perf plot perf_results/Ele_*{TowerJets,eEMRoISim*}_n2_eratio_rate50.npz --plotdir perf_plots --name eratio_ele --plotlabel _eratio_rate50 --plottext "50 kHz" --nobj 2 --xmax 100. --noerr
 
+gep-perf plot perf_results/Ele_*{TowerJets,eEMRoISim}_n1_barrel_pt20.npz --plotdir perf_plots --name barrel_ele --plotlabel _barrel_pt20 --plottext "EM20" --nobj 1 --xmax 100. --noerr --dofulleff
+gep-perf plot perf_results/Ele_*{TowerJets,eEMRoISim}_n2_barrel_pt20.npz --plotdir perf_plots --name barrel_ele --plotlabel _barrel_pt20 --plottext "2EM20" --nobj 2 --xmax 100. --noerr --dofulleff
+gep-perf plot perf_results/Ele_*{TowerJets,eEMRoISim}_n1_barrel_rate50.npz --plotdir perf_plots --name barrel_ele --plotlabel _barrel_rate50 --plottext "50 kHz" --nobj 1 --xmax 100. --noerr
+gep-perf plot perf_results/Ele_*{TowerJets,eEMRoISim}_n2_barrel_rate50.npz --plotdir perf_plots --name barrel_ele --plotlabel _barrel_rate50 --plottext "50 kHz" --nobj 2 --xmax 100. --noerr
+
+gep-perf plot perf_results/Ele_*{TowerJets,eEMRoISim*}_n1_barrel_eratio_pt20.npz --plotdir perf_plots --name barrel_eratio_ele --plotlabel _barrel_eratio_pt20 --plottext "EM20" --nobj 1 --xmax 100. --noerr --dofulleff
+gep-perf plot perf_results/Ele_*{TowerJets,eEMRoISim*}_n2_barrel_eratio_pt20.npz --plotdir perf_plots --name barrel_eratio_ele --plotlabel _barrel_eratio_pt20 --plottext "2EM20" --nobj 2 --xmax 100. --noerr --dofulleff
+gep-perf plot perf_results/Ele_*{TowerJets,eEMRoISim*}_n1_barrel_eratio_rate50.npz --plotdir perf_plots --name barrel_eratio_ele --plotlabel _barrel_eratio_rate50 --plottext "50 kHz" --nobj 1 --xmax 100. --noerr
+gep-perf plot perf_results/Ele_*{TowerJets,eEMRoISim*}_n2_barrel_eratio_rate50.npz --plotdir perf_plots --name barrel_eratio_ele --plotlabel _barrel_eratio_rate50 --plottext "50 kHz" --nobj 2 --xmax 100. --noerr
+
 ## MET
 
-gep-perf plot perf_results/MET_{*422,*Tower}_n1_pt150.npz --plotdir perf_plots --name met --plotlabel _pt150 --plottext "MET150" --nobj 1 --xmax 400. --noerr --dofulleff --dorespresol
-gep-perf plot perf_results/MET_{*422,*Tower}_n1_pt200.npz --plotdir perf_plots --name met --plotlabel _pt200 --plottext "MET200" --nobj 1 --xmax 400. --noerr --dofulleff
-gep-perf plot perf_results/MET_{*422,*Tower}_n1_rate60.npz --plotdir perf_plots --name met --plotlabel _rate60 --plottext "60 kHz" --nobj 1 --xmax 400. --noerr
+gep-perf plot perf_results/MET_{*422,*Tower}_n1_pt150.npz --plotdir perf_plots --name met --plotlabel _pt150 --plottext "MET150" --nobj 1 --xmax 500. --noerr --dofulleff --dorespresol
+gep-perf plot perf_results/MET_{*422,*Tower}_n1_pt200.npz --plotdir perf_plots --name met --plotlabel _pt200 --plottext "MET200" --nobj 1 --xmax 500. --noerr --dofulleff
+gep-perf plot perf_results/MET_{*422,*Tower}_n1_rate60.npz --plotdir perf_plots --name met --plotlabel _rate60 --plottext "60 kHz" --nobj 1 --xmax 500. --noerr
 
-gep-perf plot perf_results/MET_{*422,*Tower}SK_n1_pt150.npz --plotdir perf_plots --name skmet --plotlabel _pt150 --plottext "MET150" --nobj 1 --xmax 400. --noerr --dofulleff --dorespresol
-gep-perf plot perf_results/MET_{*422,*Tower}SK_n1_pt200.npz --plotdir perf_plots --name skmet --plotlabel _pt200 --plottext "MET200" --nobj 1 --xmax 400. --noerr --dofulleff
-gep-perf plot perf_results/MET_{*422,*Tower}SK_n1_rate60.npz --plotdir perf_plots --name skmet --plotlabel _rate60 --plottext "60 kHz" --nobj 1 --xmax 400. --noerr
+gep-perf plot perf_results/MET_{*422,*Tower}SK_n1_pt150.npz --plotdir perf_plots --name skmet --plotlabel _pt150 --plottext "MET150" --nobj 1 --xmax 500. --noerr --dofulleff --dorespresol
+gep-perf plot perf_results/MET_{*422,*Tower}SK_n1_pt200.npz --plotdir perf_plots --name skmet --plotlabel _pt200 --plottext "MET200" --nobj 1 --xmax 500. --noerr --dofulleff
+gep-perf plot perf_results/MET_{*422,*Tower}SK_n1_rate60.npz --plotdir perf_plots --name skmet --plotlabel _rate60 --plottext "60 kHz" --nobj 1 --xmax 500. --noerr
 
 tar -cvz -f perf_plots.tar.gz perf_plots/

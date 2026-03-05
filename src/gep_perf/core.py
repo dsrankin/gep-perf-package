@@ -2294,6 +2294,25 @@ def null_selector(pairs, nobj):
     #print('Null selector fraction: 1.')
     return np.ones(len(pairs),dtype=bool)
 
+def barrel_selector(pairs, nobj, maxeta=1.4, coll="truth"):
+    """
+    Select events where all of the leading nobj objects satisfy
+    abs(eta) < maxeta.
+
+    Objects are ranked by descending {coll}_pt in each event.
+    """
+    eta_field = f"{coll}_eta"
+    pt_field = f"{coll}_pt"
+
+    has_nobj = ak.to_numpy(ak.num(pairs[eta_field], axis=1) >= nobj)
+    event_sel = has_nobj.copy()
+
+    for n in range(1, nobj + 1):
+        eta_n = select_kth(pairs, eta_field, pt_field, n)
+        event_sel &= np.abs(eta_n) < maxeta
+
+    return event_sel
+
 def boosted_truth_selector(pairs, nobj, dr_threshold=0.7, debug=0, chunk_size=10000):
     """
     Memory-optimized version that:
