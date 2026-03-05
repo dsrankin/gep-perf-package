@@ -71,7 +71,7 @@ turnon_variables:
   bins: truth_pt_bins
 truth_pt_bins:
   start: 20
-  stop: 400
+  stop: 500
   step: 5
 truth_eta_bins:
 - -0.5

@@ -52,7 +52,7 @@ match_dict:
   - pt
   - pt
 reco_pt_min: 3.0
-truth_pt_min: 6.0
+truth_pt_min: 10.0
 pt_min: 3.0
 reco_iso_dr: 0.4
 truth_iso_dr: 0.6
@@ -62,13 +62,15 @@ nobjs:
 selectors:
 - name: null_selector
   label: ''
+- name: barrel_selector
+  label: '_barrel'
 rate_selectors:
 - name: null_selector
   label: ''
 - name: eratio_selector
   label: _eratio
   kwargs:
-    threshold: 0.35
+    threshold: 0.5
 truth_pt_bins:
 - 1.0
 - 2.0
