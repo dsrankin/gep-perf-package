@@ -73,6 +73,11 @@ truth_iso_dr: 0.6
 extra_vars:
   AntiKt4GepCellsE6LSB40G4TowerAlgJets: ["em_frac", "timing"]
   L1_jFexSRJetRoI: ["quality"]
+
+# optional per-collection smoothing-spline lambda (default is 1e-5)
+spline_lambdas:
+  AntiKt4GepCellsE6LSB40G4TowerAlgJets: 2.0e-5
+  L1_jFexSRJetRoI: 5.0e-6
 ```
 
 ### Supported selector names
@@ -88,3 +93,5 @@ For MET studies, enable `match_dict.met_mode: true`. In this mode the code build
 To add more, extend `gep_perf.config.SELECTORS`.
 
 When `extra_vars` contains multiple variants of the same variable for one reco prefix (for example `eRatio_LSB40SIG2`, `eRatio_LSB80SIG2`), the loader automatically expands this into multiple logical reco collections (`<prefix>_LSB40SIG2`, `<prefix>_LSB80SIG2`, etc.). The original collection is also kept without that split extra variable. Each expanded collection gets a single logical extra variable name (`eRatio`) and points to the corresponding source branch.
+
+If `spline_lambdas` is provided, keys are per reco collection from `reco_prefixes`; missing entries use the default `1e-5`. For auto-expanded reco collections from `extra_vars`, the configured lambda on the source reco prefix is inherited.

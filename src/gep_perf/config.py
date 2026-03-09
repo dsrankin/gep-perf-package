@@ -286,6 +286,7 @@ def load_run_config(path: str | Path) -> RunConfig:
     data.setdefault("extra_vars", {})
     data.setdefault("truth_suffix", "")
     data.setdefault("reco_labels", data.get("reco_prefixes", []))
+    data.setdefault("spline_lambdas", {})
 
     # Some YAML authors may provide scalars where lists are expected
     for k in ["signal_files", "background_files", "background_weights", "reco_prefixes", "reco_labels", "nobjs", "rates", "triggers"]:
@@ -312,6 +313,15 @@ def load_run_config(path: str | Path) -> RunConfig:
         data.get("reco_labels", []),
         data["extra_vars"],
     )
+
+    data["spline_lambdas"] = {
+        str(k): float(v)
+        for k, v in dict(data.get("spline_lambdas", {})).items()
+    }
+    data["spline_lambdas"] = {
+        reco_prefix: data["spline_lambdas"].get(data["reco_sources"].get(reco_prefix, reco_prefix), 1e-5)
+        for reco_prefix in data["reco_prefixes"]
+    }
 
     data["match_dict"] = dict(data.get("match_dict", {}))
     if original_pt_reco_names is not None:

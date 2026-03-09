@@ -61,6 +61,7 @@ class RunConfig:
     turnon_fns: list[Callable[[ak.Array, int], ak.Array]]
     turnon_var_labels: list[str]
     turnon_bins: list[np.ndarray]
+    spline_lambdas: dict[str, float] = field(default_factory=dict)
     reco_sources: dict[str, str] = field(default_factory=dict)
     extra_var_branches: dict[str, dict[str, str]] = field(default_factory=dict)
     tree: str = "ntuple"
@@ -1529,7 +1530,7 @@ class ResponseInterpolator:
     A callable class that interpolates the Response (Reco/Truth)
     Memory-optimized version with explicit cleanup
     """
-    def __init__(self, response_centers, response_errors, pt_bins, eta_bins, debug=None):
+    def __init__(self, response_centers, response_errors, pt_bins, eta_bins, debug=None, spline_lambda=1e-5):
         self.eta_bins = eta_bins
         self.interpolators = []
         self.interp_ranges = []
@@ -1565,7 +1566,7 @@ class ResponseInterpolator:
                 x = x[order]
                 y = y[order]
 
-                lam = 1e-5 * len(x)
+                lam = spline_lambda * len(x)
 
                 spline = make_smoothing_spline(x, y, lam=lam)
 
@@ -1836,7 +1837,8 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
                         resol_acorr if config.do_rho_sub else resol_uncorr,
                         config.truth_pt_bins, 
                         config.truth_eta_bins,
-                        debug=f"{config.name}_{reco_prefix}_responseinterp"
+                        debug=f"{config.name}_{reco_prefix}_responseinterp",
+                        spline_lambda=config.spline_lambdas.get(reco_prefix, 1e-5),
                     )
                                     
                     #apply corrections
