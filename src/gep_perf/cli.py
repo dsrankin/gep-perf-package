@@ -13,6 +13,7 @@ def run_from_yaml(config_path: str | Path, plotdir: str | None = None, resdir: s
     if plotdir is not None:
         core.plotdir = plotdir
         os.makedirs(core.plotdir, exist_ok=True)
+        os.makedirs(core.plotdir+'/debug', exist_ok=True)
     if resdir is not None:
         core.resdir = resdir
         os.makedirs(core.resdir, exist_ok=True)
@@ -35,6 +36,7 @@ def load_from_yaml(res_paths: list[str], plotdir: str | None = None, name: str =
     if plotdir is not None:
         core.plotdir = plotdir
         os.makedirs(core.plotdir, exist_ok=True)
+        os.makedirs(core.plotdir+'/debug', exist_ok=True)
 
     results = []
     for res_path in res_paths:

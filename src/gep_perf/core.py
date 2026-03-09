@@ -20,6 +20,7 @@ DEFAULT_RESDIR = 'perf_results'
 plotdir = os.environ.get('GEP_PERF_PLOTDIR', DEFAULT_PLOTDIR)
 resdir = os.environ.get('GEP_PERF_RESDIR', DEFAULT_RESDIR)
 os.makedirs(plotdir, exist_ok=True)
+os.makedirs(plotdir+'/debug', exist_ok=True)
 os.makedirs(resdir, exist_ok=True)
 
 EFFICIENCY_MARKERS = ('o', 's', '^', 'D', 'v', 'P', 'X', '*')
@@ -1275,7 +1276,7 @@ def compute_response(pairs, pt_bins, eta_bins, min_pt=None, respcorrs=None, debu
             plt.legend()
             
             # Ensure plotdir exists or handle path
-            plot_name = f"{plotdir}/debug_{debug}_eta_{eta_bins[ie]:.1f}_{eta_bins[ie+1]:.1f}.pdf"
+            plot_name = plotdir+'/debug/debug_%s_eta_%.1f_%.1f.pdf'%(debug,eta_bins[ie],eta_bins[ie+1])
             plt.savefig(plot_name, bbox_inches='tight')
             plt.close()
             
@@ -1298,7 +1299,7 @@ def compute_response(pairs, pt_bins, eta_bins, min_pt=None, respcorrs=None, debu
             plt.legend()
             
             # Ensure plotdir exists or handle path
-            plot_name = f"{plotdir}/debug_{debug}_reco_eta_{eta_bins[ie]:.1f}_{eta_bins[ie+1]:.1f}.pdf"
+            plot_name = plotdir+'/debug/debug_%s_reco_eta_%.1f_%.1f.pdf'%(debug,eta_bins[ie],eta_bins[ie+1])
             plt.savefig(plot_name, bbox_inches='tight')
             plt.close()
             
@@ -1308,7 +1309,7 @@ def compute_response(pairs, pt_bins, eta_bins, min_pt=None, respcorrs=None, debu
         plt.ylabel(r"Number of objects")
 
         # Ensure plotdir exists or handle path
-        plot_name = f"{plotdir}/debug_{debug}_all.pdf"
+        plot_name = plotdir+'/debug/debug_%s_all.pdf'%(debug)
         plt.savefig(plot_name, bbox_inches='tight')
         plt.close()
             
@@ -1425,7 +1426,7 @@ class AreaSubtractor:
                 ax.plot([rho_min, rho_max], 
                        [rho_min*slope+intercept, rho_max*slope+intercept],
                        color='r', linestyle='dashed')
-                plt.savefig(f'{plotdir}/debug_{debug}rhofit_eta_{eta_min:.2f}_{eta_max:.2f}.pdf', 
+                plt.savefig(plotdir+'/debug/debug_%srhofit_eta_%.2f_%.2f.pdf'%(debug,eta_min,eta_max), 
                            bbox_inches='tight')
             
             # Clean up per-iteration arrays
@@ -1593,7 +1594,7 @@ class ResponseInterpolator:
         plt.xlabel(r'$log(p_{T})$')
         plt.ylabel('R (reco/truth)')
         plt.legend()
-        plot_name = f"{plotdir}/debug_{debug}.pdf"
+        plot_name = plotdir+'/debug/debug_%s.pdf'%(debug)
         plt.savefig(plot_name, bbox_inches='tight')
         
         # Clean up after initialization
@@ -1739,9 +1740,9 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
                     axb.set_yscale('log')
                     axs.set_yscale('log')
                     ax.set_yscale('log')
-                figb.savefig(plotdir+'/debug_bkg_%s%s_nocorr_%s_%i.pdf'%(prefix,var,config.name,config.nobjs[n]), bbox_inches='tight')
-                figs.savefig(plotdir+'/debug_sig_%s%s_nocorr_%s_%i.pdf'%(prefix,var,config.name,config.nobjs[n]), bbox_inches='tight')
-                fig.savefig(plotdir+'/debug_%s%s_nocorr_%s_%i.pdf'%(prefix,var,config.name,config.nobjs[n]), bbox_inches='tight')
+                figb.savefig(plotdir+'/debug/debug_bkg_%s%s_nocorr_%s_%i.pdf'%(prefix,var,config.name,config.nobjs[n]), bbox_inches='tight')
+                figs.savefig(plotdir+'/debug/debug_sig_%s%s_nocorr_%s_%i.pdf'%(prefix,var,config.name,config.nobjs[n]), bbox_inches='tight')
+                fig.savefig(plotdir+'/debug/debug_%s%s_nocorr_%s_%i.pdf'%(prefix,var,config.name,config.nobjs[n]), bbox_inches='tight')
                 plt.close(figb)
                 plt.close(figs)
                 plt.close(fig)
@@ -1765,9 +1766,9 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
                     axb.legend(bbox_to_anchor=(1.05, 1))
                     axs.legend(bbox_to_anchor=(1.05, 1))
                     ax.legend(bbox_to_anchor=(1.05, 1))
-                    figb.savefig(plotdir+'/debug_bkg_%s%s_nocorr_%s.pdf'%(prefix,var,config.name), bbox_inches='tight')
-                    figs.savefig(plotdir+'/debug_sig_%s%s_nocorr_%s.pdf'%(prefix,var,config.name), bbox_inches='tight')
-                    fig.savefig(plotdir+'/debug_%s%s_nocorr_%s.pdf'%(prefix,var,config.name), bbox_inches='tight')
+                    figb.savefig(plotdir+'/debug/debug_bkg_%s%s_nocorr_%s.pdf'%(prefix,var,config.name), bbox_inches='tight')
+                    figs.savefig(plotdir+'/debug/debug_sig_%s%s_nocorr_%s.pdf'%(prefix,var,config.name), bbox_inches='tight')
+                    fig.savefig(plotdir+'/debug/debug_%s%s_nocorr_%s.pdf'%(prefix,var,config.name), bbox_inches='tight')
                     plt.close(figb)
                     plt.close(figs)
                     plt.close(fig)
@@ -2021,9 +2022,9 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
                     axb.set_yscale('log')
                     axs.set_yscale('log')
                     ax.set_yscale('log')
-                figb.savefig(plotdir+'/debug_bkg_%s%s_%s_%i.pdf'%(prefix,var,config.name,config.nobjs[n]), bbox_inches='tight')
-                figs.savefig(plotdir+'/debug_sig_%s%s_%s_%i.pdf'%(prefix,var,config.name,config.nobjs[n]), bbox_inches='tight')
-                fig.savefig(plotdir+'/debug_%s%s_%s_%i.pdf'%(prefix,var,config.name,config.nobjs[n]), bbox_inches='tight')
+                figb.savefig(plotdir+'/debug/debug_bkg_%s%s_%s_%i.pdf'%(prefix,var,config.name,config.nobjs[n]), bbox_inches='tight')
+                figs.savefig(plotdir+'/debug/debug_sig_%s%s_%s_%i.pdf'%(prefix,var,config.name,config.nobjs[n]), bbox_inches='tight')
+                fig.savefig(plotdir+'/debug/debug_%s%s_%s_%i.pdf'%(prefix,var,config.name,config.nobjs[n]), bbox_inches='tight')
                 plt.close(figb)
                 plt.close(figs)
                 plt.close(fig)
@@ -2047,9 +2048,9 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
                     axb.legend(bbox_to_anchor=(1.05, 1))
                     axs.legend(bbox_to_anchor=(1.05, 1))
                     ax.legend(bbox_to_anchor=(1.05, 1))
-                    figb.savefig(plotdir+'/debug_bkg_%s%s_%s.pdf'%(prefix,var,config.name), bbox_inches='tight')
-                    figs.savefig(plotdir+'/debug_sig_%s%s_%s.pdf'%(prefix,var,config.name), bbox_inches='tight')
-                    fig.savefig(plotdir+'/debug_%s%s_%s.pdf'%(prefix,var,config.name), bbox_inches='tight')
+                    figb.savefig(plotdir+'/debug/debug_bkg_%s%s_%s.pdf'%(prefix,var,config.name), bbox_inches='tight')
+                    figs.savefig(plotdir+'/debug/debug_sig_%s%s_%s.pdf'%(prefix,var,config.name), bbox_inches='tight')
+                    fig.savefig(plotdir+'/debug/debug_%s%s_%s.pdf'%(prefix,var,config.name), bbox_inches='tight')
                     plt.close(figb)
                     plt.close(figs)
                     plt.close(fig)
