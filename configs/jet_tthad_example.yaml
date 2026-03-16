@@ -1,6 +1,6 @@
-name: Jet
+name: Jet_ttbar
 signal_files:
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_hhbbbb_mar10_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_tthad_mar10_EXT0/outputGEPNtuple.root
 background_files:
 - /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz0_mar10_EXT0/outputGEPNtuple.root
 - /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz1_mar10_EXT0/outputGEPNtuple.root

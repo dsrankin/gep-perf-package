@@ -1,0 +1,155 @@
+name: Ele
+signal_files:
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_zee_mar10_EXT0/outputGEPNtuple.root
+background_files:
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz0_mar10_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz1_mar10_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_zee_mar10_EXT0/outputGEPNtuple.root
+background_weights:
+- 76.66268004
+- 3.656677112
+- 0.0
+reco_prefixes:
+- AntiKt1GepCellsE6LSB50G4SIG4TowerJets
+- AntiKt1GepCellsE6LSB50G4SIG4TowerSKJets
+- AntiKt1GepCellsE6LSB50G6SIG4TowerJets
+- AntiKt1GepCellsE6LSB50G6SIG4TowerSKJets
+- AntiKt1GepCellsE6LSB100G2SIG4TowerJets
+- AntiKt1GepCellsE6LSB100G2SIG4TowerSKJets
+- AntiKt1GepCellsE8LSB50G2SIG4TowerJets
+- AntiKt1GepCellsE8LSB50G2SIG4TowerSKJets
+- AntiKt1GepCellsE8LSB100G2SIG4TowerJets
+- AntiKt1GepCellsE8LSB100G2SIG4TowerSKJets
+- AntiKt1GepCellsE10LSB50G2SIG4TowerJets
+- AntiKt1GepCellsE10LSB50G2SIG4TowerSKJets
+reco_labels:
+- "AK1 GEP CellTower (6-50-4, 4 sigma)"
+- "AK1 GEP CellTower, SK (6-50-4, 4 sigma)"
+- "AK1 GEP CellTower (6-50-6, 4 sigma)"
+- "AK1 GEP CellTower, SK (6-50-6, 4 sigma)"
+- "AK1 GEP CellTower (6-100-2, 4 sigma)"
+- "AK1 GEP CellTower, SK (6-100-2, 4 sigma)"
+- "AK1 GEP CellTower (8-50-2, 4 sigma)"
+- "AK1 GEP CellTower, SK (8-50-2, 4 sigma)"
+- "AK1 GEP CellTower (8-100-2, 4 sigma)"
+- "AK1 GEP CellTower, SK (8-100-2, 4 sigma)"
+- "AK1 GEP CellTower (10-50-2, 4 sigma)"
+- "AK1 GEP CellTower, SK (10-50-2, 4 sigma)"
+truth_prefix: truth_el
+truth_suffix: ''
+match_dict:
+  pt_reco_names:
+  - pt
+  - pt
+  - pt
+  - pt
+  - pt
+  - pt
+  - pt
+  - pt
+  - pt
+  - pt
+  - pt
+  - pt
+reco_pt_min: 3.0
+truth_pt_min: 10.0
+pt_min: 3.0
+reco_iso_dr: 0.4
+truth_iso_dr: 0.6
+nobjs:
+- 1
+- 2
+selectors:
+- name: null_selector
+  label: ''
+- name: barrel_selector
+  label: '_barrel'
+rate_selectors:
+- name: null_selector
+  label: ''
+- name: eratio_selector
+  label: _eratio
+  kwargs:
+    threshold: 0.5
+truth_pt_bins:
+- 1.0
+- 2.0
+- 3.0
+- 4.0
+- 5.0
+- 6.0
+- 7.0
+- 8.0
+- 9.0
+- 10.0
+- 12.0
+- 14.0
+- 16.0
+- 18.0
+- 20.0
+- 22.0
+- 24.0
+- 26.0
+- 28.0
+- 30.0
+- 32.0
+- 34.0
+- 36.0
+- 38.0
+- 40.0
+- 42.0
+- 44.0
+- 46.0
+- 48.0
+- 50.0
+- 52.0
+- 54.0
+- 56.0
+- 58.0
+- 60.0
+- 62.0
+- 64.0
+- 66.0
+- 68.0
+- 70.0
+- 72.0
+- 74.0
+- 76.0
+- 78.0
+- 80.0
+- 82.0
+- 84.0
+- 86.0
+- 88.0
+- 90.0
+- 92.0
+- 94.0
+- 96.0
+- 98.0
+- 100.0
+truth_eta_bins:
+- -4.9
+- -3.2
+- -2.5
+- -1.5
+- -1.375
+- -1.0
+- 0.0
+- 1.0
+- 1.375
+- 1.5
+- 2.5
+- 3.2
+- 4.9
+do_rho_sub: false
+rates:
+- 50.0
+- 50.0
+triggers:
+- - 20.0
+  - 30.0
+- - 10.0
+  - 20.0
+extra_vars: []
+tree: ntuple
+dr_max: 0.2

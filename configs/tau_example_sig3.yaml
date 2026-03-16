@@ -10,47 +10,31 @@ background_weights:
 - 3.656677112
 - 0.0
 reco_prefixes:
-- AntiKt1GepCellsE6LSB50G4SIG2TowerJets
-- AntiKt1GepCellsE6LSB50G4SIG2TowerSKJets
-- AntiKt1GepCellsE6LSB50G6SIG2TowerJets
-- AntiKt1GepCellsE6LSB50G6SIG2TowerSKJets
-- AntiKt1GepCellsE6LSB100G2SIG2TowerJets
-- AntiKt1GepCellsE6LSB100G2SIG2TowerSKJets
-- AntiKt1GepCellsE8LSB50G2SIG2TowerJets
-- AntiKt1GepCellsE8LSB50G2SIG2TowerSKJets
-- AntiKt1GepCellsE8LSB100G2SIG2TowerJets
-- AntiKt1GepCellsE8LSB100G2SIG2TowerSKJets
-- AntiKt1GepCellsE10LSB50G2SIG2TowerJets
-- AntiKt1GepCellsE10LSB50G2SIG2TowerSKJets
-- L1_eTauRoISim
-- L1_jFexSRJetRoI
-- AntiKt1OfflineCellsTowerJets
-- AntiKt1OfflineCellsTowerSKJets
-- AntiKt1CaloTopoClusters422Jets
-- AntiKt1CaloTopoClusters422SKJets
-- AntiKt3OfflineCellsTowerJets
-- AntiKt3OfflineCellsTowerSKJets
+- AntiKt1GepCellsE6LSB50G4SIG3TowerJets
+- AntiKt1GepCellsE6LSB50G4SIG3TowerSKJets
+- AntiKt1GepCellsE6LSB50G6SIG3TowerJets
+- AntiKt1GepCellsE6LSB50G6SIG3TowerSKJets
+- AntiKt1GepCellsE6LSB100G2SIG3TowerJets
+- AntiKt1GepCellsE6LSB100G2SIG3TowerSKJets
+- AntiKt1GepCellsE8LSB50G2SIG3TowerJets
+- AntiKt1GepCellsE8LSB50G2SIG3TowerSKJets
+- AntiKt1GepCellsE8LSB100G2SIG3TowerJets
+- AntiKt1GepCellsE8LSB100G2SIG3TowerSKJets
+- AntiKt1GepCellsE10LSB50G2SIG3TowerJets
+- AntiKt1GepCellsE10LSB50G2SIG3TowerSKJets
 reco_labels:
-- "AK1 GEP CellTower (6-50-4, 2 sigma)"
-- "AK1 GEP CellTower, SK (6-50-4, 2 sigma)"
-- "AK1 GEP CellTower (6-50-6, 2 sigma)"
-- "AK1 GEP CellTower, SK (6-50-6, 2 sigma)"
-- "AK1 GEP CellTower (6-100-2, 2 sigma)"
-- "AK1 GEP CellTower, SK (6-100-2, 2 sigma)"
-- "AK1 GEP CellTower (8-50-2, 2 sigma)"
-- "AK1 GEP CellTower, SK (8-50-2, 2 sigma)"
-- "AK1 GEP CellTower (8-100-2, 2 sigma)"
-- "AK1 GEP CellTower, SK (8-100-2, 2 sigma)"
-- "AK1 GEP CellTower (10-50-2, 2 sigma)"
-- "AK1 GEP CellTower, SK (10-50-2, 2 sigma)"
-- "eFEX Tau"
-- "jFEX Jet"
-- "AK1 Offline CellTower"
-- "AK1 Offline CellTower, SK"
-- "AK1 422 Topocluster"
-- "AK1 422 Topocluster, SK"
-- "AK3 Offline CellTower"
-- "AK3 Offline CellTower, SK"
+- "AK1 GEP CellTower (6-50-4, 3 sigma)"
+- "AK1 GEP CellTower, SK (6-50-4, 3 sigma)"
+- "AK1 GEP CellTower (6-50-6, 3 sigma)"
+- "AK1 GEP CellTower, SK (6-50-6, 3 sigma)"
+- "AK1 GEP CellTower (6-100-2, 3 sigma)"
+- "AK1 GEP CellTower, SK (6-100-2, 3 sigma)"
+- "AK1 GEP CellTower (8-50-2, 3 sigma)"
+- "AK1 GEP CellTower, SK (8-50-2, 3 sigma)"
+- "AK1 GEP CellTower (8-100-2, 3 sigma)"
+- "AK1 GEP CellTower, SK (8-100-2, 3 sigma)"
+- "AK1 GEP CellTower (10-50-2, 3 sigma)"
+- "AK1 GEP CellTower, SK (10-50-2, 3 sigma)"
 truth_prefix: truth_tau
 truth_suffix: _vis
 match_dict:
@@ -61,14 +45,6 @@ match_dict:
   - pt
   - pt
   - pt
-  - pt
-  - pt
-  - pt
-  - pt
-  - pt
-  - pt
-  - et
-  - et
   - pt
   - pt
   - pt

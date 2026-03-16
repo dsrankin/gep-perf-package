@@ -1,10 +1,10 @@
-name: Ele
+name: Pho
 signal_files:
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_zee_mar10_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_hyy_mar10_EXT0/outputGEPNtuple.root
 background_files:
 - /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz0_mar10_EXT0/outputGEPNtuple.root
 - /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz1_mar10_EXT0/outputGEPNtuple.root
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_zee_mar10_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_hyy_mar10_EXT0/outputGEPNtuple.root
 background_weights:
 - 76.66268004
 - 3.656677112
@@ -45,7 +45,7 @@ reco_labels:
 - "AK1 Offline CellTower, SK"
 - "AK1 422 Topocluster"
 - "AK1 422 Topocluster, SK"
-truth_prefix: truth_el
+truth_prefix: truth_ph
 truth_suffix: ''
 match_dict:
   pt_reco_names:
