@@ -853,9 +853,8 @@ def compute_rate(bkg_pairs, threshold, nobj, correctors=None, full_rate=31_000.,
         selector = null_selector
     sel = selector(bkg_pairs, nobj)
 
-    # Compute actual achieved efficiency (strictly greater than threshold)
-    # If you prefer >=, change '>' to '>='.
-    actual_eff = np.sum(w[(reco_pt > threshold) & sel]) / np.sum(w)
+    # Compute actual achieved efficiency
+    actual_eff = np.sum(w[(reco_pt >= threshold) & sel]) / np.sum(w)
 
     return float(full_rate*actual_eff), float(actual_eff)
 
@@ -957,7 +956,7 @@ def compute_signal_efficiency(
     numerator_selector=None,
     turnon_values=None,
     weights=False,
-    inclusive=False,
+    inclusive=True,
     correctors=None,
 ):
     """
