@@ -47,10 +47,10 @@ def load_from_yaml(res_paths: list[str], plotdir: str | None = None, name: str =
     # Convenience overlays
     core.overlay_efficiency(results, f"{plot_label}_{name}_n{rnobj}", plot_text, nobj, xmax=xmax, noerr=noerr)
     if do_full_eff:
-        core.overlay_full_effs(results, suffix=f"_{name}{nobj}", nobj=nobj, xmax=xmax)
+        core.overlay_full_effs(results, suffix=f"{plot_label}_{name}{nobj}", nobj=nobj, xmax=xmax)
     if do_resp_resol:
-        core.overlay_resp_resol(results, prefix=f"{name}_")
-        core.overlay_resp_resol(results, corr=True, prefix=f"{name}_")
+        core.overlay_resp_resol(results, prefix=f"{name}{plot_label}_")
+        core.overlay_resp_resol(results, corr=True, prefix=f"{name}{plot_label}_")
 
     return results
 

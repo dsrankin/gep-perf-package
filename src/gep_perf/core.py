@@ -1258,14 +1258,16 @@ def compute_response(pairs, pt_bins, eta_bins, min_pt=None, respcorrs=None, debu
         for ie in range(n_eta):
             etamask = (ie == eta_idx)
             if np.sum(etamask) == 0: continue
+
+            bin_slice = slice(ie * n_pt, (ie + 1) * n_pt)
+            x_centers = 0.5 * (pt_bins[:-1] + pt_bins[1:])
+            y_centers = response_centers[bin_slice]
             
             # 2D Hist: Truth pT vs Response
             plt.hist2d(truth_pt[etamask], response[etamask], 
-                       bins=[pt_bins, np.linspace(0., 3., 100)], cmap="viridis")
+                       bins=[pt_bins, np.linspace(0., np.max(y_centers[np.isfinite(y_centers)]) if np.sum(np.isfinite(y_centers))>0 else 3., 100)], cmap="viridis")
             
             # Overlay the response
-            bin_slice = slice(ie * n_pt, (ie + 1) * n_pt)
-            x_centers = 0.5 * (pt_bins[:-1] + pt_bins[1:])
             plt.errorbar(x_centers, response_centers[bin_slice], 
                          yerr=response_uncs[bin_slice], 
                          fmt='o-', color='r', alpha=0.25, label='Fit' if dofit else 'Median')
@@ -1284,7 +1286,7 @@ def compute_response(pairs, pt_bins, eta_bins, min_pt=None, respcorrs=None, debu
             # ------
             # 2D Hist: Reco pT vs Response
             plt.hist2d(reco_pt[etamask], response[etamask], 
-                       bins=[pt_bins, np.linspace(0., 3., 100)], cmap="viridis")
+                       bins=[pt_bins, np.linspace(0., np.max(y_centers[np.isfinite(y_centers)]) if np.sum(np.isfinite(y_centers))>0 else 3., 100)], cmap="viridis")
             
             # Overlay the response
             bin_slice = slice(ie * n_pt, (ie + 1) * n_pt)
@@ -1304,7 +1306,7 @@ def compute_response(pairs, pt_bins, eta_bins, min_pt=None, respcorrs=None, debu
             plt.savefig(plot_name, bbox_inches='tight')
             plt.close()
             
-        plt.hist(response-1., bins=np.linspace(-1.5, 1.5, 81), color='r', histtype='step')
+        plt.hist(response-1., bins=np.linspace(-1., np.max(response[etamask])-1., 91), color='r', histtype='step')
         plt.axvline(0., color='k', linestyle='--')
         plt.xlabel(r"Reco - Truth / Truth")
         plt.ylabel(r"Number of objects")
