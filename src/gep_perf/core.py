@@ -1272,7 +1272,7 @@ def compute_response(pairs, pt_bins, eta_bins, min_pt=None, respcorrs=None, debu
             
             # 2D Hist: Truth pT vs Response
             plt.hist2d(truth_pt[etamask], response[etamask], 
-                       bins=[pt_bins, np.linspace(0., np.max(y_centers[np.isfinite(y_centers)]) if np.sum(np.isfinite(y_centers))>0 else 3., 100)], cmap="viridis")
+                       bins=[pt_bins, np.linspace(0., np.maximum(np.max(y_centers[np.isfinite(y_centers)]) if np.sum(np.isfinite(y_centers))>0 else 3.,3.), 100)], cmap="viridis")
             
             # Overlay the response
             plt.errorbar(x_centers, response_centers[bin_slice], 
@@ -1293,7 +1293,7 @@ def compute_response(pairs, pt_bins, eta_bins, min_pt=None, respcorrs=None, debu
             # ------
             # 2D Hist: Reco pT vs Response
             plt.hist2d(reco_pt[etamask], response[etamask], 
-                       bins=[pt_bins, np.linspace(0., np.max(y_centers[np.isfinite(y_centers)]) if np.sum(np.isfinite(y_centers))>0 else 3., 100)], cmap="viridis")
+                       bins=[pt_bins, np.linspace(0., np.maximum(np.max(y_centers[np.isfinite(y_centers)]) if np.sum(np.isfinite(y_centers))>0 else 3.,3.), 100)], cmap="viridis")
             
             # Overlay the response
             bin_slice = slice(ie * n_pt, (ie + 1) * n_pt)
