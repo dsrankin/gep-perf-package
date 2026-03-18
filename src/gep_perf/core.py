@@ -1033,10 +1033,17 @@ def compute_signal_efficiency(
     else:
         passed_mask = (reco_pt > threshold) & numerator_sel
 
+    def _hist_with_flow(values, bins, weights_arr=None):
+        """Histogram with under/overflow absorbed in first/last bins."""
+        nbins = len(bins) - 1
+        indices = np.searchsorted(bins, values, side="right") - 1
+        indices = np.clip(indices, 0, nbins - 1)
+        return np.bincount(indices[mask], weights=weights_arr, minlength=nbins)
+
     if not weights:
-        # Unweighted histograms
-        total_counts, edges = np.histogram(turnon_values, bins=turnon_bins)
-        passed_counts, _ = np.histogram(turnon_values[passed_mask], bins=turnon_bins)
+        # Unweighted histograms (with first/last bins as under/overflow)
+        total_counts = _hist_with_flow(turnon_values, turnon_bins)
+        passed_counts = _hist_with_flow(turnon_values[passed_mask], turnon_bins)
 
         efficiency, errlo, errhi = teff(passed_counts, total_counts)
 
@@ -1045,12 +1052,12 @@ def compute_signal_efficiency(
         w_pass = w[passed_mask]
 
         # sum of weights
-        total_w, _ = np.histogram(turnon_values, bins=turnon_bins, weights=w)
-        passed_w, _ = np.histogram(turnon_values[passed_mask], bins=turnon_bins, weights=w_pass)
+        total_w = _hist_with_flow(turnon_values, turnon_bins, weights_arr=w)
+        passed_w = _hist_with_flow(turnon_values[passed_mask], turnon_bins, weights_arr=w_pass)
 
         # sum of squared weights (for effective counts)
-        total_w2, _ = np.histogram(turnon_values, bins=turnon_bins, weights=w * w)
-        passed_w2, _ = np.histogram(turnon_values[passed_mask], bins=turnon_bins, weights=w_pass * w_pass)
+        total_w2 = _hist_with_flow(turnon_values, turnon_bins, weights_arr=w * w)
+        passed_w2 = _hist_with_flow(turnon_values[passed_mask], turnon_bins, weights_arr=w_pass * w_pass)
 
         efficiency, errlo, errhi = teff(
             passed_w,
@@ -1063,6 +1070,7 @@ def compute_signal_efficiency(
         total_counts = total_w.astype(float)
         passed_counts = passed_w.astype(float)
 
+    edges = np.asarray(turnon_bins, dtype=float)
     centers = 0.5 * (edges[:-1] + edges[1:])
 
     return centers, efficiency, total_counts, passed_counts, np.stack([errlo, errhi])
@@ -2162,7 +2170,7 @@ def overlay_efficiency(results, suffix="", titletxt="", nobj=1, xmax=-1., noerr=
         turnon_centers = 0.5*(turnon_bins[:-1]+turnon_bins[1:])
         xmask = (turnon_centers < xmax) if xmax>0. else np.ones(len(turnon_centers),dtype=bool)
         params[i],_ = fit_logistic(turnon_centers[xmask], r.signal_efficiency[xmask], np.mean(r.signal_efficiency_error,axis=0)[xmask])
-        label_full = result_reco_label(r)+", "+r.name+r' [$p_T$>'+('%.1f'%r.threshold)+'] ($\\sigma$='+('%.2f'%(1./params[i][1]))+', $p_T^{98\\%}$='+('%.2f'%(params[i][2]+np.log(49)/params[i][1]))+')'
+        label_full = result_reco_label(r)+r' [$p_T$>'+('%.1f'%r.threshold)+'] ($\\sigma$='+('%.2f'%(1./params[i][1]))+', $p_T^{98\\%}$='+('%.2f'%(params[i][2]+np.log(49)/params[i][1]))+')'
         plt.errorbar(turnon_centers[xmask], r.signal_efficiency[xmask], None if noerr else r.signal_efficiency_error[:,xmask], marker=marker, label=label_full, color='C%i'%i, capsize=3, capthick=2, linestyle='none', mfc='none', alpha=0.5, markersize=4)
         if params[i][0]==-1:
             plt.plot(turnon_centers[xmask], logistic_function(turnon_centers[xmask],*params[i]), color='C%i'%i, linestyle='dashed')
@@ -2182,7 +2190,7 @@ def overlay_efficiency(results, suffix="", titletxt="", nobj=1, xmax=-1., noerr=
         turnon_centers = 0.5*(turnon_bins[:-1]+turnon_bins[1:])
         shiftmask = turnon_centers < (params[i][2]+3.*np.log(49)/params[i][1]) # 2x the shift from 50 to 98 to make sure its visible
         params_adj,_ = fit_logistic(turnon_centers[shiftmask]-(params[i][2]+np.log(49)/params[i][1]), r.signal_efficiency[shiftmask], np.mean(r.signal_efficiency_error,axis=0)[shiftmask])
-        label_full = result_reco_label(r)+", "+r.name+r' [$p_T$>'+('%.1f'%r.threshold)+'] ($\\hat{\\sigma}$='+('%.2f'%(1./params_adj[1]))+', $\\hat{p}_T^{98\\%}$='+('%.2f'%(params_adj[2]+np.log(49)/params_adj[1]))+')'
+        label_full = result_reco_label(r)+r' [$p_T$>'+('%.1f'%r.threshold)+'] ($\\hat{\\sigma}$='+('%.2f'%(1./params_adj[1]))+', $\\hat{p}_T^{98\\%}$='+('%.2f'%(params_adj[2]+np.log(49)/params_adj[1]))+')'
         plt.errorbar(turnon_centers[shiftmask]-(params[i][2]+np.log(49)/params[i][1]), r.signal_efficiency[shiftmask], None if noerr else r.signal_efficiency_error[:,shiftmask], marker=marker, label=label_full, color='C%i'%i, capsize=3, capthick=2, linestyle='none', mfc='none', alpha=0.5, markersize=4)
         if params[i][0]==-1:
             plt.plot(turnon_centers[shiftmask]-(params[i][2]+np.log(49)/params[i][1]), logistic_function(turnon_centers[shiftmask]-(params[i][2]+np.log(49)/params[i][1]),*params_adj), color='C%i'%i, linestyle='dashed')
