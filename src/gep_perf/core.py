@@ -1038,7 +1038,7 @@ def compute_signal_efficiency(
         nbins = len(bins) - 1
         indices = np.searchsorted(bins, values, side="right") - 1
         indices = np.clip(indices, 0, nbins - 1)
-        return np.bincount(indices[mask], weights=weights_arr, minlength=nbins)
+        return np.bincount(indices, weights=weights_arr, minlength=nbins)
 
     if not weights:
         # Unweighted histograms (with first/last bins as under/overflow)
