@@ -26,12 +26,27 @@ os.makedirs(resdir, exist_ok=True)
 EFFICIENCY_MARKERS = ('o', 's', '^', 'D', 'v', 'P', 'X', '*')
 
 
+def sanitize_plot_component(name: str) -> str:
+    return str(name).replace(os.sep, '_')
+
+
+def ensure_plot_parent(path: str) -> str:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    return path
+
+
+def build_plot_path(*parts: str) -> str:
+    return ensure_plot_parent(os.path.join(plotdir, *parts))
+
+
+def build_debug_plot_path(collection: Optional[str], filename: str) -> str:
+    if collection:
+        return build_plot_path('debug', sanitize_plot_component(collection), filename)
+    return build_plot_path('debug', filename)
+
+
 def get_efficiency_marker(index: int) -> str:
     return EFFICIENCY_MARKERS[index % len(EFFICIENCY_MARKERS)]
-
-
-
-import os
 
 # this will also swap from processing batches with awkward to a standard event loop
 
@@ -1286,7 +1301,7 @@ def compute_response(pairs, pt_bins, eta_bins, min_pt=None, respcorrs=None, debu
             plt.legend()
             
             # Ensure plotdir exists or handle path
-            plot_name = plotdir+'/debug/debug_%s_eta_%.1f_%.1f.pdf'%(debug,eta_bins[ie],eta_bins[ie+1])
+            plot_name = build_debug_plot_path(debug, 'debug_%s_eta_%.1f_%.1f.pdf'%(debug,eta_bins[ie],eta_bins[ie+1]))
             plt.savefig(plot_name, bbox_inches='tight')
             plt.close()
             
@@ -1309,7 +1324,7 @@ def compute_response(pairs, pt_bins, eta_bins, min_pt=None, respcorrs=None, debu
             plt.legend()
             
             # Ensure plotdir exists or handle path
-            plot_name = plotdir+'/debug/debug_%s_reco_eta_%.1f_%.1f.pdf'%(debug,eta_bins[ie],eta_bins[ie+1])
+            plot_name = build_debug_plot_path(debug, 'debug_%s_reco_eta_%.1f_%.1f.pdf'%(debug,eta_bins[ie],eta_bins[ie+1]))
             plt.savefig(plot_name, bbox_inches='tight')
             plt.close()
             
@@ -1319,7 +1334,7 @@ def compute_response(pairs, pt_bins, eta_bins, min_pt=None, respcorrs=None, debu
         plt.ylabel(r"Number of objects")
 
         # Ensure plotdir exists or handle path
-        plot_name = plotdir+'/debug/debug_%s_all.pdf'%(debug)
+        plot_name = build_debug_plot_path(debug, 'debug_%s_all.pdf'%(debug))
         plt.savefig(plot_name, bbox_inches='tight')
         plt.close()
             
@@ -1436,7 +1451,7 @@ class AreaSubtractor:
                 ax.plot([rho_min, rho_max], 
                        [rho_min*slope+intercept, rho_max*slope+intercept],
                        color='r', linestyle='dashed')
-                plt.savefig(plotdir+'/debug/debug_%srhofit_eta_%.2f_%.2f.pdf'%(debug,eta_min,eta_max), 
+                plt.savefig(build_debug_plot_path(debug, 'debug_%srhofit_eta_%.2f_%.2f.pdf'%(debug,eta_min,eta_max)), 
                            bbox_inches='tight')
             
             # Clean up per-iteration arrays
@@ -1604,7 +1619,7 @@ class ResponseInterpolator:
         plt.xlabel(r'$log(p_{T})$')
         plt.ylabel('R (reco/truth)')
         plt.legend()
-        plot_name = plotdir+'/debug/debug_%s.pdf'%(debug)
+        plot_name = build_debug_plot_path(debug, 'debug_%s.pdf'%(debug))
         plt.savefig(plot_name, bbox_inches='tight')
         
         # Clean up after initialization
@@ -1750,9 +1765,9 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
                     axb.set_yscale('log')
                     axs.set_yscale('log')
                     ax.set_yscale('log')
-                figb.savefig(plotdir+'/debug/debug_bkg_%s%s_nocorr_%s_%i.pdf'%(prefix,var,config.name,config.nobjs[n]), bbox_inches='tight')
-                figs.savefig(plotdir+'/debug/debug_sig_%s%s_nocorr_%s_%i.pdf'%(prefix,var,config.name,config.nobjs[n]), bbox_inches='tight')
-                fig.savefig(plotdir+'/debug/debug_%s%s_nocorr_%s_%i.pdf'%(prefix,var,config.name,config.nobjs[n]), bbox_inches='tight')
+                figb.savefig(build_debug_plot_path(config.name, 'debug_bkg_%s%s_nocorr_%s_%i.pdf'%(prefix,var,config.name,config.nobjs[n])), bbox_inches='tight')
+                figs.savefig(build_debug_plot_path(config.name, 'debug_sig_%s%s_nocorr_%s_%i.pdf'%(prefix,var,config.name,config.nobjs[n])), bbox_inches='tight')
+                fig.savefig(build_debug_plot_path(config.name, 'debug_%s%s_nocorr_%s_%i.pdf'%(prefix,var,config.name,config.nobjs[n])), bbox_inches='tight')
                 plt.close(figb)
                 plt.close(figs)
                 plt.close(fig)
@@ -1776,9 +1791,9 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
                     axb.legend(bbox_to_anchor=(1.05, 1))
                     axs.legend(bbox_to_anchor=(1.05, 1))
                     ax.legend(bbox_to_anchor=(1.05, 1))
-                    figb.savefig(plotdir+'/debug/debug_bkg_%s%s_nocorr_%s.pdf'%(prefix,var,config.name), bbox_inches='tight')
-                    figs.savefig(plotdir+'/debug/debug_sig_%s%s_nocorr_%s.pdf'%(prefix,var,config.name), bbox_inches='tight')
-                    fig.savefig(plotdir+'/debug/debug_%s%s_nocorr_%s.pdf'%(prefix,var,config.name), bbox_inches='tight')
+                    figb.savefig(build_debug_plot_path(config.name, 'debug_bkg_%s%s_nocorr_%s.pdf'%(prefix,var,config.name)), bbox_inches='tight')
+                    figs.savefig(build_debug_plot_path(config.name, 'debug_sig_%s%s_nocorr_%s.pdf'%(prefix,var,config.name)), bbox_inches='tight')
+                    fig.savefig(build_debug_plot_path(config.name, 'debug_%s%s_nocorr_%s.pdf'%(prefix,var,config.name)), bbox_inches='tight')
                     plt.close(figb)
                     plt.close(figs)
                     plt.close(fig)
@@ -2033,9 +2048,9 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
                     axb.set_yscale('log')
                     axs.set_yscale('log')
                     ax.set_yscale('log')
-                figb.savefig(plotdir+'/debug/debug_bkg_%s%s_%s_%i.pdf'%(prefix,var,config.name,config.nobjs[n]), bbox_inches='tight')
-                figs.savefig(plotdir+'/debug/debug_sig_%s%s_%s_%i.pdf'%(prefix,var,config.name,config.nobjs[n]), bbox_inches='tight')
-                fig.savefig(plotdir+'/debug/debug_%s%s_%s_%i.pdf'%(prefix,var,config.name,config.nobjs[n]), bbox_inches='tight')
+                figb.savefig(build_debug_plot_path(config.name, 'debug_bkg_%s%s_%s_%i.pdf'%(prefix,var,config.name,config.nobjs[n])), bbox_inches='tight')
+                figs.savefig(build_debug_plot_path(config.name, 'debug_sig_%s%s_%s_%i.pdf'%(prefix,var,config.name,config.nobjs[n])), bbox_inches='tight')
+                fig.savefig(build_debug_plot_path(config.name, 'debug_%s%s_%s_%i.pdf'%(prefix,var,config.name,config.nobjs[n])), bbox_inches='tight')
                 plt.close(figb)
                 plt.close(figs)
                 plt.close(fig)
@@ -2059,9 +2074,9 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
                     axb.legend(bbox_to_anchor=(1.05, 1))
                     axs.legend(bbox_to_anchor=(1.05, 1))
                     ax.legend(bbox_to_anchor=(1.05, 1))
-                    figb.savefig(plotdir+'/debug/debug_bkg_%s%s_%s.pdf'%(prefix,var,config.name), bbox_inches='tight')
-                    figs.savefig(plotdir+'/debug/debug_sig_%s%s_%s.pdf'%(prefix,var,config.name), bbox_inches='tight')
-                    fig.savefig(plotdir+'/debug/debug_%s%s_%s.pdf'%(prefix,var,config.name), bbox_inches='tight')
+                    figb.savefig(build_debug_plot_path(config.name, 'debug_bkg_%s%s_%s.pdf'%(prefix,var,config.name)), bbox_inches='tight')
+                    figs.savefig(build_debug_plot_path(config.name, 'debug_sig_%s%s_%s.pdf'%(prefix,var,config.name)), bbox_inches='tight')
+                    fig.savefig(build_debug_plot_path(config.name, 'debug_%s%s_%s.pdf'%(prefix,var,config.name)), bbox_inches='tight')
                     plt.close(figb)
                     plt.close(figs)
                     plt.close(fig)
@@ -2180,7 +2195,7 @@ def overlay_efficiency(results, suffix="", titletxt="", nobj=1, xmax=-1., noerr=
     plt.ylim(0,1.1)
     plt.legend(bbox_to_anchor=(1.05, 1),title=titletxt)
     plt.grid(True)
-    plt.savefig(plotdir+'/efficiency%s.pdf'%suffix, bbox_inches='tight')
+    plt.savefig(build_plot_path('efficiency%s.pdf'%suffix), bbox_inches='tight')
 
     plt.clf()
 
@@ -2200,7 +2215,7 @@ def overlay_efficiency(results, suffix="", titletxt="", nobj=1, xmax=-1., noerr=
     plt.ylim(0,1.1)
     plt.legend(bbox_to_anchor=(1.05, 1),title=titletxt)
     plt.grid(True)
-    plt.savefig(plotdir+'/efficiency%s_corr.pdf'%suffix, bbox_inches='tight')
+    plt.savefig(build_plot_path('efficiency%s_corr.pdf'%suffix), bbox_inches='tight')
 
 def overlay_resp_resol(results, corr=False, prefix=""):
 
@@ -2221,7 +2236,7 @@ def overlay_resp_resol(results, corr=False, prefix=""):
         plt.title(r"$%.2f<\eta<%.2f$"%(r.truth_eta_bins[ie],r.truth_eta_bins[ie+1]))
         plt.legend(bbox_to_anchor=(1.05, 1))
         plt.grid(True)
-        plt.savefig(plotdir+'/'+prefix+'response'+("_corr" if corr else "")+'_eta_%.2f_%.2f.pdf'%(r.truth_eta_bins[ie],r.truth_eta_bins[ie+1]), bbox_inches='tight')
+        plt.savefig(build_plot_path(prefix+'response'+("_corr" if corr else "")+'_eta_%.2f_%.2f.pdf'%(r.truth_eta_bins[ie],r.truth_eta_bins[ie+1])), bbox_inches='tight')
 
         plt.clf()
 
@@ -2237,7 +2252,7 @@ def overlay_resp_resol(results, corr=False, prefix=""):
         plt.title(r"$%.2f<\eta<%.2f$"%(r.truth_eta_bins[ie],r.truth_eta_bins[ie+1]))
         plt.legend(bbox_to_anchor=(1.05, 1))
         plt.grid(True)
-        plt.savefig(plotdir+'/'+prefix+'resol'+("_corr" if corr else "")+'_eta_%.2f_%.2f.pdf'%(r.truth_eta_bins[ie],r.truth_eta_bins[ie+1]), bbox_inches='tight')
+        plt.savefig(build_plot_path(prefix+'resol'+("_corr" if corr else "")+'_eta_%.2f_%.2f.pdf'%(r.truth_eta_bins[ie],r.truth_eta_bins[ie+1])), bbox_inches='tight')
 
 def overlay_full_effs(results, suffix="", nobj=1, xmax=-1.):
     plt.clf()
@@ -2261,7 +2276,7 @@ def overlay_full_effs(results, suffix="", nobj=1, xmax=-1.):
     plt.xlabel(r"%s $p_T$ [GeV]"%numtext[nobj])
     plt.legend(bbox_to_anchor=(1.05, 1))
     plt.grid(True)
-    plt.savefig(plotdir+'/efficiency_full_signal%s.pdf'%(suffix), bbox_inches='tight')
+    plt.savefig(build_plot_path('efficiency_full_signal%s.pdf'%(suffix)), bbox_inches='tight')
     
     plt.clf()
     
@@ -2279,7 +2294,7 @@ def overlay_full_effs(results, suffix="", nobj=1, xmax=-1.):
     plt.xlabel(r"%s $p_T$ [GeV]"%numtext[nobj])
     plt.legend(bbox_to_anchor=(1.05, 1))
     plt.grid(True)
-    plt.savefig(plotdir+'/efficiency_full_background%s.pdf'%(suffix), bbox_inches='tight')
+    plt.savefig(build_plot_path('efficiency_full_background%s.pdf'%(suffix)), bbox_inches='tight')
     
     plt.clf()
     
@@ -2299,7 +2314,7 @@ def overlay_full_effs(results, suffix="", nobj=1, xmax=-1.):
     plt.title(numtext[nobj]+" "+results[0].name)
     plt.legend(bbox_to_anchor=(1.05, 1))
     plt.grid(True)
-    plt.savefig(plotdir+'/efficiency_full_combined%s.pdf'%(suffix), bbox_inches='tight')
+    plt.savefig(build_plot_path('efficiency_full_combined%s.pdf'%(suffix)), bbox_inches='tight')
 
 # selectors
 def null_selector(pairs, nobj):
