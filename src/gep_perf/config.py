@@ -259,6 +259,76 @@ def _parse_turnon_vars(obj: Any, bins_lookup: Dict[str, np.ndarray]):
     return vars_in, vars_out, labels, bins_out
 
 
+def _collection_membership(reco_prefix: str, reco_label: str) -> str:
+    text = f"{reco_prefix} {reco_label}"
+    if "EtaSK" in text:
+        return "etask"
+    if "SK" in text:
+        return "sk"
+    return "other"
+
+
+def _normalize_collection_sets(collection_sets: str | list[str] | None) -> set[str]:
+    if collection_sets is None:
+        return set()
+    if isinstance(collection_sets, str):
+        raw_items = [item.strip() for item in collection_sets.split(",")]
+    else:
+        raw_items = [str(item).strip() for item in collection_sets]
+    normalized = {item.lower() for item in raw_items if item}
+    allowed = {"sk", "etask", "other", "all"}
+    unknown = sorted(normalized - allowed)
+    if unknown:
+        raise ValueError(
+            f"Unknown collection set(s): {unknown}. Allowed values: {sorted(allowed)}"
+        )
+    if "all" in normalized:
+        return {"sk", "etask", "other"}
+    return normalized
+
+
+def filter_run_config_collections(
+    cfg: RunConfig, collection_sets: str | list[str] | None
+) -> RunConfig:
+    selected_sets = _normalize_collection_sets(collection_sets)
+    if not selected_sets:
+        return cfg
+
+    keep_indices = [
+        idx
+        for idx, (reco_prefix, reco_label) in enumerate(
+            zip(cfg.reco_prefixes, cfg.reco_labels)
+        )
+        if _collection_membership(reco_prefix, reco_label) in selected_sets
+    ]
+
+    if not keep_indices:
+        raise ValueError(
+            f"Collection filter {sorted(selected_sets)} removed all reco collections."
+        )
+
+    kept_prefixes = [cfg.reco_prefixes[i] for i in keep_indices]
+    kept_labels = [cfg.reco_labels[i] for i in keep_indices]
+
+    match_dict = dict(cfg.match_dict)
+    pt_reco_names = match_dict.get("pt_reco_names")
+    if isinstance(pt_reco_names, list):
+        match_dict["pt_reco_names"] = [pt_reco_names[i] for i in keep_indices]
+
+    return replace(
+        cfg,
+        reco_prefixes=kept_prefixes,
+        reco_labels=kept_labels,
+        match_dict=match_dict,
+        extra_vars={prefix: cfg.extra_vars.get(prefix, []) for prefix in kept_prefixes},
+        reco_sources={prefix: cfg.reco_sources.get(prefix, prefix) for prefix in kept_prefixes},
+        extra_var_branches={
+            prefix: cfg.extra_var_branches.get(prefix, {}) for prefix in kept_prefixes
+        },
+        spline_lambdas={prefix: cfg.spline_lambdas.get(prefix, 1e-5) for prefix in kept_prefixes},
+    )
+
+
 def load_run_config(path: str | Path) -> RunConfig:
     path = Path(path)
     data: Dict[str, Any] = yaml.safe_load(path.read_text())

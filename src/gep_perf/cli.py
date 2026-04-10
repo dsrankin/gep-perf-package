@@ -5,11 +5,12 @@ import argparse
 import os
 from pathlib import Path
 
-from .config import load_run_config
+from .config import load_run_config, filter_run_config_collections
 from . import core
 
 def run_from_yaml(config_path: str | Path, plotdir: str | None = None, resdir: str | None = None,
-                 prefix: str = "", debug: bool = False, corr_cache: str = ""):
+                 prefix: str = "", debug: bool = False, corr_cache: str = "",
+                 collection_sets: str | None = None):
     if plotdir is not None:
         core.plotdir = plotdir
         os.makedirs(core.plotdir, exist_ok=True)
@@ -19,6 +20,7 @@ def run_from_yaml(config_path: str | Path, plotdir: str | None = None, resdir: s
         os.makedirs(core.resdir, exist_ok=True)
 
     cfg = load_run_config(config_path)
+    cfg = filter_run_config_collections(cfg, collection_sets)
     results = core.process_run(cfg, debug=debug, prefix=prefix, corr_cache=corr_cache)
 
     # Save one file per (reco, nobj, selection) result
@@ -67,6 +69,14 @@ def main(argv=None):
     prun.add_argument("--corr-cache", default="", help="Directory for cached correction fits.")
     prun.add_argument("--only-plot", action="store_true", help="Skip results computation, just load and plot.")
     prun.add_argument("--debug", action="store_true", help="Enable verbose debugging / extra plots.")
+    prun.add_argument(
+        "--collection-sets",
+        default=None,
+        help=(
+            "Comma-separated reco collection groups to process: "
+            "sk, etask, other, or all (example: --collection-sets sk,etask)."
+        ),
+    )
 
     pplot = sub.add_parser("plot", help="Make final efficiency and rate comparison plots.")
     pplot.add_argument("respaths", nargs='+', help="List of results to combine.")
@@ -84,7 +94,7 @@ def main(argv=None):
 
     if args.cmd == "run":
         run_from_yaml(args.config, plotdir=args.plotdir, resdir=args.resdir, prefix=args.prefix,
-                      debug=args.debug, corr_cache=args.corr_cache)
+                      debug=args.debug, corr_cache=args.corr_cache, collection_sets=args.collection_sets)
 
     if args.cmd == "plot":
         load_from_yaml(args.respaths, plotdir=args.plotdir, name=args.name, plot_label=args.plotlabel, plot_text=args.plottext, 
