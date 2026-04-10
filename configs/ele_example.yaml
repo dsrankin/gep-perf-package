@@ -1,10 +1,10 @@
 name: Ele
 signal_files:
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_zee_mar10_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_zee_apr07_EXT0/outputGEPNtuple.root
 background_files:
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz0_mar10_EXT0/outputGEPNtuple.root
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz1_mar10_EXT0/outputGEPNtuple.root
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_zee_mar10_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz0_apr07_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz1_apr07_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_zee_apr07_EXT0/outputGEPNtuple.root
 background_weights:
 - 76.66268004
 - 3.656677112
@@ -12,39 +12,55 @@ background_weights:
 reco_prefixes:
 - AntiKt1GepCellsE6LSB50G4SIG2TowerJets
 - AntiKt1GepCellsE6LSB50G4SIG2TowerSKJets
+- AntiKt1GepCellsE6LSB50G4SIG2TowerEtaSKJets
 - AntiKt1GepCellsE6LSB50G6SIG2TowerJets
 - AntiKt1GepCellsE6LSB50G6SIG2TowerSKJets
+- AntiKt1GepCellsE6LSB50G6SIG2TowerEtaSKJets
 - AntiKt1GepCellsE6LSB100G2SIG2TowerJets
 - AntiKt1GepCellsE6LSB100G2SIG2TowerSKJets
+- AntiKt1GepCellsE6LSB100G2SIG2TowerEtaSKJets
 - AntiKt1GepCellsE8LSB50G2SIG2TowerJets
 - AntiKt1GepCellsE8LSB50G2SIG2TowerSKJets
+- AntiKt1GepCellsE8LSB50G2SIG2TowerEtaSKJets
 - AntiKt1GepCellsE8LSB100G2SIG2TowerJets
 - AntiKt1GepCellsE8LSB100G2SIG2TowerSKJets
+- AntiKt1GepCellsE8LSB100G2SIG2TowerEtaSKJets
 - AntiKt1GepCellsE10LSB50G2SIG2TowerJets
 - AntiKt1GepCellsE10LSB50G2SIG2TowerSKJets
+- AntiKt1GepCellsE10LSB50G2SIG2TowerEtaSKJets
 - L1_eEMRoISim
 - AntiKt1OfflineCellsTowerJets
 - AntiKt1OfflineCellsTowerSKJets
+- AntiKt1OfflineCellsTowerEtaSKJets
 - AntiKt1CaloTopoClusters422Jets
 - AntiKt1CaloTopoClusters422SKJets
+- AntiKt1CaloTopoClusters422EtaSKJets
 reco_labels:
 - "AK1 GEP CellTower (6-50-4, 2 sigma)"
 - "AK1 GEP CellTower, SK (6-50-4, 2 sigma)"
+- "AK1 GEP CellTower, EtaSK (6-50-4, 2 sigma)"
 - "AK1 GEP CellTower (6-50-6, 2 sigma)"
 - "AK1 GEP CellTower, SK (6-50-6, 2 sigma)"
+- "AK1 GEP CellTower, EtaSK (6-50-6, 2 sigma)"
 - "AK1 GEP CellTower (6-100-2, 2 sigma)"
 - "AK1 GEP CellTower, SK (6-100-2, 2 sigma)"
+- "AK1 GEP CellTower, EtaSK (6-100-2, 2 sigma)"
 - "AK1 GEP CellTower (8-50-2, 2 sigma)"
 - "AK1 GEP CellTower, SK (8-50-2, 2 sigma)"
+- "AK1 GEP CellTower, EtaSK (8-50-2, 2 sigma)"
 - "AK1 GEP CellTower (8-100-2, 2 sigma)"
 - "AK1 GEP CellTower, SK (8-100-2, 2 sigma)"
+- "AK1 GEP CellTower, EtaSK (8-100-2, 2 sigma)"
 - "AK1 GEP CellTower (10-50-2, 2 sigma)"
 - "AK1 GEP CellTower, SK (10-50-2, 2 sigma)"
+- "AK1 GEP CellTower, EtaSK (10-50-2, 2 sigma)"
 - "eFEX EM"
 - "AK1 Offline CellTower"
 - "AK1 Offline CellTower, SK"
+- "AK1 Offline CellTower, EtaSK"
 - "AK1 422 Topocluster"
 - "AK1 422 Topocluster, SK"
+- "AK1 422 Topocluster, EtaSK"
 truth_prefix: truth_el
 truth_suffix: ''
 match_dict:
@@ -61,7 +77,15 @@ match_dict:
   - pt
   - pt
   - pt
+  - pt
+  - pt
+  - pt
+  - pt
+  - pt
+  - pt
   - et
+  - pt
+  - pt
   - pt
   - pt
   - pt
