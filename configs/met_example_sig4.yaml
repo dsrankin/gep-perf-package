@@ -70,6 +70,10 @@ match_dict:
   - et
   - et
   - et
+  met_special_prefixes:
+  - gFex_JwoJ
+  - gFex_RhoRMS
+  - gFex_NC
 reco_pt_min: 30.0
 truth_pt_min: 50.0
 pt_min: 30.0
