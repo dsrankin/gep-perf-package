@@ -414,6 +414,7 @@ def match_reco_truth(
     met_mode=False,
     met_reco_ex_name="ex",
     met_reco_ey_name="ey",
+    met_special_prefixes=None,
     step_size=10000,
 ):
 
@@ -433,6 +434,7 @@ def match_reco_truth(
     extra_vars_by_prefix = _normalize_extra_vars(reco_prefixes, extra_vars)
     reco_sources = reco_sources or {}
     extra_var_branches = extra_var_branches or {}
+    special_met_prefixes = set(met_special_prefixes or [])
 
     truth_branches = [
         f"{truth_prefix}_{pt_truth_name}{truth_suffix}",
@@ -445,6 +447,7 @@ def match_reco_truth(
 
     reco_extra_branches = {}
     reco_branches = {}
+    reco_metphi_mode = {}
     for i, reco_prefix in enumerate(reco_prefixes):
         mapped_source_prefix = reco_sources.get(reco_prefix, reco_prefix)
         source_prefix = mapped_source_prefix
@@ -474,6 +477,19 @@ def match_reco_truth(
         if met_mode:
             reco_branches[reco_prefix][1] = f"{source_prefix}_{met_reco_ex_name}"
             reco_branches[reco_prefix][2] = f"{source_prefix}_{met_reco_ey_name}"
+            reco_metphi_mode[reco_prefix] = False
+            if reco_branches[reco_prefix][1] not in available_branches:
+                met_branch = f"{source_prefix}_met"
+                met_phi_branch = f"{source_prefix}_metPhi"
+                if (
+                    (reco_prefix in special_met_prefixes or source_prefix in special_met_prefixes)
+                    and met_branch in available_branches
+                    and met_phi_branch in available_branches
+                ):
+                    reco_branches[reco_prefix][0] = met_branch
+                    reco_branches[reco_prefix][1] = met_phi_branch
+                    reco_branches[reco_prefix][2] = met_phi_branch
+                    reco_metphi_mode[reco_prefix] = True
 
     branches = truth_branches + ["weight", "gFEX_rho"]
     for reco_prefix in reco_prefixes:
@@ -551,9 +567,12 @@ def match_reco_truth(
 
                 for reco_prefix in reco_prefixes:
                     reco_et = chunk[reco_branches[reco_prefix][0]]
-                    reco_ex = chunk[reco_branches[reco_prefix][1]]
-                    reco_ey = chunk[reco_branches[reco_prefix][2]]
-                    reco_phi = ak.values_astype(np.arctan2(reco_ey, reco_ex), np.float32)
+                    if reco_metphi_mode.get(reco_prefix, False):
+                        reco_phi = ak.values_astype(-chunk[reco_branches[reco_prefix][1]], np.float32)
+                    else:
+                        reco_ex = chunk[reco_branches[reco_prefix][1]]
+                        reco_ey = chunk[reco_branches[reco_prefix][2]]
+                        reco_phi = ak.values_astype(np.arctan2(reco_ey, reco_ex), np.float32)
 
                     reco_pts[reco_prefix].append(ak.singletons(reco_et))
                     reco_etas[reco_prefix].append(ak.singletons(truth_eta))
