@@ -572,6 +572,7 @@ def match_reco_truth(
                     else:
                         reco_ex = chunk[reco_branches[reco_prefix][1]]
                         reco_ey = chunk[reco_branches[reco_prefix][2]]
+                        reco_et = ak.values_astype(np.sqrt(reco_ex**2 + reco_ey**2), np.float32)
                         reco_phi = ak.values_astype(np.arctan2(reco_ey, reco_ex), np.float32)
 
                     reco_pts[reco_prefix].append(ak.singletons(reco_et))
