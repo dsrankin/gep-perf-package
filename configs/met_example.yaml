@@ -1,10 +1,10 @@
 name: MET
 signal_files:
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_zvvhbb_apr10_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_zvvhbb_apr20_EXT0/outputGEPNtuple.root
 background_files:
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz0_apr10_EXT0/outputGEPNtuple.root
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz1_apr10_EXT0/outputGEPNtuple.root
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_zvvhbb_apr10_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz0_apr20_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz1_apr20_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_zvvhbb_apr20_EXT0/outputGEPNtuple.root
 background_weights:
 - 76.66268004
 - 3.656677112
@@ -34,6 +34,9 @@ reco_prefixes:
 - GepMETCaloTopoClusters422
 - GepMETCaloTopoClusters422SK
 - GepMETCaloTopoClusters422EtaSK
+- gFex_JwoJ
+- gFex_RhoRMS
+- gFex_NC
 reco_labels:
 - "GEP CellTower (6-50-4, 2 sigma)"
 - "GEP CellTower, SK (6-50-4, 2 sigma)"
@@ -59,6 +62,9 @@ reco_labels:
 - "422 Topocluster"
 - "422 Topocluster, SK"
 - "422 Topocluster, EtaSK"
+- "gFEX JwoJ MET"
+- "gFEX RhoRMS MET"
+- "gFEX NC MET"
 truth_prefix: truth_neu
 truth_suffix: ''
 match_dict:
@@ -88,6 +94,9 @@ match_dict:
   - et
   - et
   - et
+  - met
+  - met
+  - met
   met_special_prefixes:
   - gFex_JwoJ
   - gFex_RhoRMS

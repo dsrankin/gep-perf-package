@@ -1,10 +1,10 @@
 name: MET
 signal_files:
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_zvvhbb_apr10_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_zvvhbb_apr20_EXT0/outputGEPNtuple.root
 background_files:
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz0_apr10_EXT0/outputGEPNtuple.root
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz1_apr10_EXT0/outputGEPNtuple.root
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_zvvhbb_apr10_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz0_apr20_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz1_apr20_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_zvvhbb_apr20_EXT0/outputGEPNtuple.root
 background_weights:
 - 76.66268004
 - 3.656677112
@@ -28,6 +28,9 @@ reco_prefixes:
 - GepMETGepCellsE10LSB50G2SIG3Tower
 - GepMETGepCellsE10LSB50G2SIG3TowerSK
 - GepMETGepCellsE10LSB50G2SIG3TowerEtaSK
+- gFex_JwoJ
+- gFex_RhoRMS
+- gFex_NC
 reco_labels:
 - "GEP CellTower (6-50-4, 3 sigma)"
 - "GEP CellTower, SK (6-50-4, 3 sigma)"
@@ -47,6 +50,9 @@ reco_labels:
 - "GEP CellTower (10-50-2, 3 sigma)"
 - "GEP CellTower, SK (10-50-2, 3 sigma)"
 - "GEP CellTower, EtaSK (10-50-2, 3 sigma)"
+- "gFEX JwoJ MET"
+- "gFEX RhoRMS MET"
+- "gFEX NC MET"
 truth_prefix: truth_neu
 truth_suffix: ''
 match_dict:
@@ -70,6 +76,9 @@ match_dict:
   - et
   - et
   - et
+  - met
+  - met
+  - met
   met_special_prefixes:
   - gFex_JwoJ
   - gFex_RhoRMS
