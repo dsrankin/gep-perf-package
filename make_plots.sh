@@ -59,9 +59,25 @@ fi
 if [[ "$OBJTYPE" == "all" ]] || [[ "$OBJTYPE" == "pujet" ]]; then
     echo "Pileup-suppression Jets"
     PLOT_SUBDIR="pujet"
-    plot_cmd perf_results/Jet_{A*422Jets,A*$CELLSEL*TowerJets,A*Offline*TowerJets,Jet_A*422*SKJets,Jet_A*$CELLSEL*Tower*SKJets,Jet_A*Offline*Tower*SKJets,Jet_A*422*EtaSKJets,Jet_A*$CELLSEL*Tower*EtaSKJets,Jet_A*Offline*Tower*EtaSKJets,L*jFexSRJetRoI}_n1_pt100.npz --name pujet --plotlabel _pt100$CELLLAB --plottext "J100 [VBF HH->4b]" --nobj 1 --xmax 200. --noerr --dofulleff --dorespresol
-    plot_cmd perf_results/Jet_{A*422Jets,A*$CELLSEL*TowerJets,A*Offline*TowerJets,Jet_A*422*SKJets,Jet_A*$CELLSEL*Tower*SKJets,Jet_A*Offline*Tower*SKJets,Jet_A*422*EtaSKJets,Jet_A*$CELLSEL*Tower*EtaSKJets,Jet_A*Offline*Tower*EtaSKJets,L*jFexSRJetRoI}_n2_pt60.npz --name pujet --plotlabel _pt60$CELLLAB --plottext "2J60 [VBF HH->4b]" --nobj 2 --xmax 100. --noerr --dofulleff
-    plot_cmd perf_results/Jet_{A*422Jets,A*$CELLSEL*TowerJets,A*Offline*TowerJets,Jet_A*422*SKJets,Jet_A*$CELLSEL*Tower*SKJets,Jet_A*Offline*Tower*SKJets,Jet_A*422*EtaSKJets,Jet_A*$CELLSEL*Tower*EtaSKJets,Jet_A*Offline*Tower*EtaSKJets,L*jFexSRJetRoI}_n1_rate50.npz --name pujet --plotlabel _rate50$CELLLAB --plottext "50 kHz [VBF HH->4b]" --nobj 1 --xmax 200. --noerr
+    plot_cmd perf_results/Jet_{A*422Jets,A*$CELLSEL*TowerJets,A*Offline*TowerJets,A*422*SKJets,A*$CELLSEL*Tower*SKJets,A*Offline*Tower*SKJets,L*jFexSRJetRoI}_n1_pt100.npz --name pujet --plotlabel _pt100$CELLLAB --plottext "J100 [VBF HH->4b]" --nobj 1 --xmax 200. --noerr --dofulleff --dorespresol
+    plot_cmd perf_results/Jet_{A*422Jets,A*$CELLSEL*TowerJets,A*Offline*TowerJets,A*422*SKJets,A*$CELLSEL*Tower*SKJets,A*Offline*Tower*SKJets,L*jFexSRJetRoI}_n2_pt60.npz --name pujet --plotlabel _pt60$CELLLAB --plottext "2J60 [VBF HH->4b]" --nobj 2 --xmax 100. --noerr --dofulleff
+    plot_cmd perf_results/Jet_{A*422Jets,A*$CELLSEL*TowerJets,A*Offline*TowerJets,A*422*SKJets,A*$CELLSEL*Tower*SKJets,A*Offline*Tower*SKJets,L*jFexSRJetRoI}_n3_pt50.npz --name pujet --plotlabel _pt50$CELLLAB --plottext "3J50 [VBF HH->4b]" --nobj 3 --xmax 100. --noerr --dofulleff
+    plot_cmd perf_results/Jet_{A*422Jets,A*$CELLSEL*TowerJets,A*Offline*TowerJets,A*422*SKJets,A*$CELLSEL*Tower*SKJets,A*Offline*Tower*SKJets,L*jFexSRJetRoI}_n4_pt40.npz --name pujet --plotlabel _pt40$CELLLAB --plottext "4J40 [VBF HH->4b]" --nobj 4 --xmax 100. --noerr --dofulleff
+
+    plot_cmd perf_results/Jet_ttbar_{A*422Jets,A*$CELLSEL*TowerJets,A*Offline*TowerJets,A*422*SKJets,A*$CELLSEL*Tower*SKJets,A*Offline*Tower*SKJets,L*jFexSRJetRoI}_n1_pt100.npz --name pujet_ttbar --plotlabel _pt100$CELLLAB --plottext "J100 [TTbar]" --nobj 1 --xmax 200. --noerr --dofulleff --dorespresol
+    plot_cmd perf_results/Jet_ttbar_{A*422Jets,A*$CELLSEL*TowerJets,A*Offline*TowerJets,A*422*SKJets,A*$CELLSEL*Tower*SKJets,A*Offline*Tower*SKJets,L*jFexSRJetRoI}_n2_pt60.npz --name pujet_ttbar --plotlabel _pt60$CELLLAB --plottext "2J60 [TTbar]" --nobj 2 --xmax 100. --noerr --dofulleff
+    plot_cmd perf_results/Jet_ttbar_{A*422Jets,A*$CELLSEL*TowerJets,A*Offline*TowerJets,A*422*SKJets,A*$CELLSEL*Tower*SKJets,A*Offline*Tower*SKJets,L*jFexSRJetRoI}_n3_pt50.npz --name pujet_ttbar --plotlabel _pt50$CELLLAB --plottext "3J50 [TTbar]" --nobj 3 --xmax 100. --noerr --dofulleff
+    plot_cmd perf_results/Jet_ttbar_{A*422Jets,A*$CELLSEL*TowerJets,A*Offline*TowerJets,A*422*SKJets,A*$CELLSEL*Tower*SKJets,A*Offline*Tower*SKJets,L*jFexSRJetRoI}_n4_pt40.npz --name pujet_ttbar --plotlabel _pt40$CELLLAB --plottext "4J40 [TTbar]" --nobj 4 --xmax 100. --noerr --dofulleff
+
+    plot_cmd perf_results/Jet_{A*422Jets,A*$CELLSEL*TowerJets,A*Offline*TowerJets,A*422*SKJets,A*$CELLSEL*Tower*SKJets,A*Offline*Tower*SKJets,L*jFexSRJetRoI}_n1_rate50.npz --name pujet --plotlabel _rate50$CELLLAB --plottext "50 kHz [VBF HH->4b]" --nobj 1 --xmax 200. --noerr
+    plot_cmd perf_results/Jet_{A*422Jets,A*$CELLSEL*TowerJets,A*Offline*TowerJets,A*422*SKJets,A*$CELLSEL*Tower*SKJets,A*Offline*Tower*SKJets,L*jFexSRJetRoI}_n2_rate50.npz --name pujet --plotlabel _rate50$CELLLAB --plottext "50 kHz [VBF HH->4b]" --nobj 2 --xmax 150. --noerr
+    plot_cmd perf_results/Jet_{A*422Jets,A*$CELLSEL*TowerJets,A*Offline*TowerJets,A*422*SKJets,A*$CELLSEL*Tower*SKJets,A*Offline*Tower*SKJets,L*jFexSRJetRoI}_n3_rate75.npz --name pujet --plotlabel _rate75$CELLLAB --plottext "75 kHz [VBF HH->4b]" --nobj 3 --xmax 150. --noerr
+    plot_cmd perf_results/Jet_{A*422Jets,A*$CELLSEL*TowerJets,A*Offline*TowerJets,A*422*SKJets,A*$CELLSEL*Tower*SKJets,A*Offline*Tower*SKJets,L*jFexSRJetRoI}_n4_rate100.npz --name pujet --plotlabel _rate100$CELLLAB --plottext "100 kHz [VBF HH->4b]" --nobj 4 --xmax 100. --noerr
+
+    plot_cmd perf_results/Jet_ttbar_{A*422Jets,A*$CELLSEL*TowerJets,A*Offline*TowerJets,A*422*SKJets,A*$CELLSEL*Tower*SKJets,A*Offline*Tower*SKJets,L*jFexSRJetRoI}_n1_rate50.npz --name pujet_ttbar --plotlabel _rate50$CELLLAB --plottext "50 kHz [TTbar]" --nobj 1 --xmax 200. --noerr
+    plot_cmd perf_results/Jet_ttbar_{A*422Jets,A*$CELLSEL*TowerJets,A*Offline*TowerJets,A*422*SKJets,A*$CELLSEL*Tower*SKJets,A*Offline*Tower*SKJets,L*jFexSRJetRoI}_n2_rate50.npz --name pujet_ttbar --plotlabel _rate50$CELLLAB --plottext "50 kHz [TTbar]" --nobj 2 --xmax 150. --noerr
+    plot_cmd perf_results/Jet_ttbar_{A*422Jets,A*$CELLSEL*TowerJets,A*Offline*TowerJets,A*422*SKJets,A*$CELLSEL*Tower*SKJets,A*Offline*Tower*SKJets,L*jFexSRJetRoI}_n3_rate75.npz --name pujet_ttbar --plotlabel _rate75$CELLLAB --plottext "75 kHz [TTbar]" --nobj 3 --xmax 150. --noerr
+    plot_cmd perf_results/Jet_ttbar_{A*422Jets,A*$CELLSEL*TowerJets,A*Offline*TowerJets,A*422*SKJets,A*$CELLSEL*Tower*SKJets,A*Offline*Tower*SKJets,L*jFexSRJetRoI}_n4_rate100.npz --name pujet_ttbar --plotlabel _rate100$CELLLAB --plottext "100 kHz [TTbar]" --nobj 4 --xmax 100. --noerr
 fi
 
 ## SKJets
@@ -227,10 +243,10 @@ fi
 if [[ "$OBJTYPE" == "all" ]] || [[ "$OBJTYPE" == "putau" ]]; then
     echo "Pileup-suppression Taus"
     PLOT_SUBDIR="putau"
-    plot_cmd perf_results/Tau_{*422Jets,*$CELLSEL*TowerJets,Tau_A*422*SKJets,Tau_A*$CELLSEL*Tower*SKJets,Tau_A*422*EtaSKJets,Tau_A*$CELLSEL*Tower*EtaSKJets,eTauRoISim,jFexSRJetRoI}_n1_pt150.npz --name putau --plotlabel _pt150$CELLLAB --plottext "Tau150 [y*->tt]" --nobj 1 --xmax 250. --noerr --dofulleff --dorespresol
-    plot_cmd perf_results/Tau_{*422Jets,*$CELLSEL*TowerJets,Tau_A*422*SKJets,Tau_A*$CELLSEL*Tower*SKJets,Tau_A*422*EtaSKJets,Tau_A*$CELLSEL*Tower*EtaSKJets,eTauRoISim,jFexSRJetRoI}_n2_pt40.npz --name putau --plotlabel _pt40$CELLLAB --plottext "2Tau40 [y*->tt]" --nobj 2 --xmax 100. --noerr --dofulleff
-    plot_cmd perf_results/Tau_{*422Jets,*$CELLSEL*TowerJets,Tau_A*422*SKJets,Tau_A*$CELLSEL*Tower*SKJets,Tau_A*422*EtaSKJets,Tau_A*$CELLSEL*Tower*EtaSKJets,eTauRoISim,jFexSRJetRoI}_n1_rate10.npz --name putau --plotlabel _rate10$CELLLAB --plottext "10 kHz [y*->tt]" --nobj 1 --xmax 250. --noerr
-    plot_cmd perf_results/Tau_{*422Jets,*$CELLSEL*TowerJets,Tau_A*422*SKJets,Tau_A*$CELLSEL*Tower*SKJets,Tau_A*422*EtaSKJets,Tau_A*$CELLSEL*Tower*EtaSKJets,eTauRoISim,jFexSRJetRoI}_n2_rate200.npz --name putau --plotlabel _rate200$CELLLAB --plottext "200 kHz [y*->tt]" --nobj 2 --xmax 100. --noerr
+    plot_cmd perf_results/Tau_{*422Jets,*$CELLSEL*TowerJets,A*422*SKJets,A*$CELLSEL*Tower*SKJets,eTauRoISim,jFexSRJetRoI}_n1_pt150.npz --name putau --plotlabel _pt150$CELLLAB --plottext "Tau150 [y*->tt]" --nobj 1 --xmax 250. --noerr --dofulleff --dorespresol
+    plot_cmd perf_results/Tau_{*422Jets,*$CELLSEL*TowerJets,A*422*SKJets,A*$CELLSEL*Tower*SKJets,eTauRoISim,jFexSRJetRoI}_n2_pt40.npz --name putau --plotlabel _pt40$CELLLAB --plottext "2Tau40 [y*->tt]" --nobj 2 --xmax 100. --noerr --dofulleff
+    plot_cmd perf_results/Tau_{*422Jets,*$CELLSEL*TowerJets,A*422*SKJets,A*$CELLSEL*Tower*SKJets,eTauRoISim,jFexSRJetRoI}_n1_rate10.npz --name putau --plotlabel _rate10$CELLLAB --plottext "10 kHz [y*->tt]" --nobj 1 --xmax 250. --noerr
+    plot_cmd perf_results/Tau_{*422Jets,*$CELLSEL*TowerJets,A*422*SKJets,A*$CELLSEL*Tower*SKJets,eTauRoISim,jFexSRJetRoI}_n2_rate200.npz --name putau --plotlabel _rate200$CELLLAB --plottext "200 kHz [y*->tt]" --nobj 2 --xmax 100. --noerr
 fi
 
 ## SKTaus
@@ -320,9 +336,9 @@ fi
 if [[ "$OBJTYPE" == "all" ]] || [[ "$OBJTYPE" == "pumet" ]]; then
     echo "Pileup-suppression MET"
     PLOT_SUBDIR="pumet"
-    plot_cmd perf_results/MET_{gFex*,*422,*Offline*Tower,*$CELLSEL*Tower,MET_*422*SK,MET_*Offline*Tower*SK,MET_*$CELLSEL*Tower*SK,MET_*422*EtaSK,MET_*Offline*Tower*EtaSK,MET_*$CELLSEL*Tower*EtaSK}_n1_pt150.npz --name pumet --plotlabel _pt150$CELLLAB --plottext "MET150 [ZH->vvbb]" --nobj 1 --xmax 500. --noerr --dofulleff --dorespresol
-    plot_cmd perf_results/MET_{gFex*,*422,*Offline*Tower,*$CELLSEL*Tower,MET_*422*SK,MET_*Offline*Tower*SK,MET_*$CELLSEL*Tower*SK,MET_*422*EtaSK,MET_*Offline*Tower*EtaSK,MET_*$CELLSEL*Tower*EtaSK}_n1_pt200.npz --name pumet --plotlabel _pt200$CELLLAB --plottext "MET200 [ZH->vvbb]" --nobj 1 --xmax 500. --noerr --dofulleff
-    plot_cmd perf_results/MET_{gFex*,*422,*Offline*Tower,*$CELLSEL*Tower,MET_*422*SK,MET_*Offline*Tower*SK,MET_*$CELLSEL*Tower*SK,MET_*422*EtaSK,MET_*Offline*Tower*EtaSK,MET_*$CELLSEL*Tower*EtaSK}_n1_rate60.npz --name pumet --plotlabel _rate60$CELLLAB --plottext "60 kHz [ZH->vvbb]" --nobj 1 --xmax 500. --noerr
+    plot_cmd perf_results/MET_{gFex*,*422,*Offline*Tower,*$CELLSEL*Tower,*422*SK,*Offline*Tower*SK,*$CELLSEL*Tower*SK}_n1_pt150.npz --name pumet --plotlabel _pt150$CELLLAB --plottext "MET150 [ZH->vvbb]" --nobj 1 --xmax 500. --noerr --dofulleff --dorespresol
+    plot_cmd perf_results/MET_{gFex*,*422,*Offline*Tower,*$CELLSEL*Tower,*422*SK,*Offline*Tower*SK,*$CELLSEL*Tower*SK}_n1_pt200.npz --name pumet --plotlabel _pt200$CELLLAB --plottext "MET200 [ZH->vvbb]" --nobj 1 --xmax 500. --noerr --dofulleff
+    plot_cmd perf_results/MET_{gFex*,*422,*Offline*Tower,*$CELLSEL*Tower,*422*SK,*Offline*Tower*SK,*$CELLSEL*Tower*SK}_n1_rate60.npz --name pumet --plotlabel _rate60$CELLLAB --plottext "60 kHz [ZH->vvbb]" --nobj 1 --xmax 500. --noerr
 fi
 
 ## MET
