@@ -2360,7 +2360,7 @@ def barrel_selector(pairs, nobj, maxeta=1.4, coll="truth"):
 
     return event_sel
 
-def boosted_truth_selector(pairs, nobj, dr_threshold=0.7, debug=0, chunk_size=10000):
+def boosted_truth_selector(pairs, nobj, dr_threshold=0.7, truth_pt_threshold=40.0, debug=0, chunk_size=10000):
     """
     Memory-optimized version that:
     1. Uses chunking to limit memory usage
@@ -2373,6 +2373,8 @@ def boosted_truth_selector(pairs, nobj, dr_threshold=0.7, debug=0, chunk_size=10
         Dictionary with "truth_pt", "truth_eta", "truth_phi" fields
     dr_threshold : float
         Delta R threshold for considering jets "close"
+    truth_pt_threshold : float
+        Minimum truth-jet pT threshold for jets considered in close-pair checks
     debug : int
         Number of events to print debug info for
     chunk_size : int
@@ -2383,6 +2385,7 @@ def boosted_truth_selector(pairs, nobj, dr_threshold=0.7, debug=0, chunk_size=10
     event_sel : np.ndarray
         Boolean array indicating which events have close jet pairs
     """
+    truth_pt = pairs["truth_pt"]
     truth_eta = pairs["truth_eta"]
     truth_phi = pairs["truth_phi"]
     
@@ -2393,9 +2396,13 @@ def boosted_truth_selector(pairs, nobj, dr_threshold=0.7, debug=0, chunk_size=10
     for chunk_start in range(0, n_events, chunk_size):
         chunk_end = min(chunk_start + chunk_size, n_events)
         
-        # Extract chunk
+        # Extract chunk and keep only truth jets above the configured pT threshold
+        pt_chunk = truth_pt[chunk_start:chunk_end]
         eta_chunk = truth_eta[chunk_start:chunk_end]
         phi_chunk = truth_phi[chunk_start:chunk_end]
+        truth_pt_mask = pt_chunk >= truth_pt_threshold
+        eta_chunk = eta_chunk[truth_pt_mask]
+        phi_chunk = phi_chunk[truth_pt_mask]
         
         # Create combinations for this chunk only
         eta_pairs = ak.combinations(eta_chunk, 2, axis=1)
@@ -2434,6 +2441,7 @@ def boosted_truth_selector(pairs, nobj, dr_threshold=0.7, debug=0, chunk_size=10
             for i in range(debug_end):
                 global_idx = chunk_start + i
                 print(f'debug: {global_idx}')
+                print(f'\ttruth_pt_threshold: {truth_pt_threshold}')
                 print(f'\teta: {eta_chunk[i]}')
                 print(f'\tphi: {phi_chunk[i]}')
                 print(f'\tdelta_r: {delta_r[i]}')
@@ -2448,7 +2456,7 @@ def boosted_truth_selector(pairs, nobj, dr_threshold=0.7, debug=0, chunk_size=10
         event_sel[chunk_start:chunk_end] = ak.to_numpy(events_with_close_pair)
         
         # Clean up chunk data
-        del eta_chunk, phi_chunk, delta_r, events_with_close_pair
+        del pt_chunk, truth_pt_mask, eta_chunk, phi_chunk, delta_r, events_with_close_pair
     
     return event_sel
 
