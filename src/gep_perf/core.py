@@ -1926,15 +1926,29 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
                     config.turnon_var_labels,
                     config.turnon_bins,
                 ):
-                    turnon_values = turnon_fn(sig_pairs[reco_prefix], config.nobjs[n])
+                    if turnon_var == "_dijet_mass":
+                        turnon_values = dijet_mass_turnon_var(
+                            sig_pairs[reco_prefix],
+                            config.nobjs[n],
+                            pt_min=threshold,
+                        )
+                    else:
+                        turnon_values = turnon_fn(sig_pairs[reco_prefix], config.nobjs[n])
                     for s in range(len(config.sels)):
+                        selector = config.sels[s]
+                        if turnon_var == "_dijet_mass":
+                            def selector(pairs, nobj, _selector=selector, _threshold=threshold):
+                                return _selector(pairs, nobj) & truth_multiplicity_selector(
+                                    pairs, nobj, pt_min=_threshold
+                                )
+
                         # Signal efficiency vs turn-on variable
                         centers, eff, _,_, err = compute_signal_efficiency(
                             sig_pairs[reco_prefix],
                             threshold,
                             turnon_bins,
                             config.nobjs[n],
-                            config.sels[s],
+                            selector,
                             numerator_selector=config.rate_sels[r],
                             turnon_values=turnon_values,
                         )
@@ -1943,7 +1957,7 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
                             sig_pairs[reco_prefix],
                             config.truth_pt_bins,
                             config.nobjs[n],
-                            config.sels[s],
+                            selector,
                             numerator_selector=config.rate_sels[r],
                             weights=False,
                         )
@@ -1951,7 +1965,7 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
                             bkg_pairs[reco_prefix],
                             config.truth_pt_bins,
                             config.nobjs[n],
-                            config.sels[s],
+                            selector,
                             numerator_selector=config.rate_sels[r],
                             weights=True,
                         )
@@ -2000,15 +2014,29 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
                         config.turnon_var_labels,
                         config.turnon_bins,
                     ):
-                        turnon_values = turnon_fn(sig_pairs[reco_prefix], config.nobjs[n])
+                        if turnon_var == "_dijet_mass":
+                            turnon_values = dijet_mass_turnon_var(
+                                sig_pairs[reco_prefix],
+                                config.nobjs[n],
+                                pt_min=threshold,
+                            )
+                        else:
+                            turnon_values = turnon_fn(sig_pairs[reco_prefix], config.nobjs[n])
                         for s in range(len(config.sels)):
+                            selector = config.sels[s]
+                            if turnon_var == "_dijet_mass":
+                                def selector(pairs, nobj, _selector=selector, _threshold=threshold):
+                                    return _selector(pairs, nobj) & truth_multiplicity_selector(
+                                        pairs, nobj, pt_min=_threshold
+                                    )
+
                             # Signal efficiency vs turn-on variable
                             centers, eff, _,_, err = compute_signal_efficiency(
                                 sig_pairs[reco_prefix],
                                 threshold,
                                 turnon_bins,
                                 config.nobjs[n],
-                                config.sels[s],
+                                selector,
                                 numerator_selector=config.rate_sels[r],
                                 turnon_values=turnon_values,
                             )
@@ -2340,6 +2368,19 @@ def overlay_full_effs(results, suffix="", nobj=1, xmax=-1.):
 def null_selector(pairs, nobj):
     #print('Null selector fraction: 1.')
     return np.ones(len(pairs),dtype=bool)
+
+def truth_multiplicity_selector(pairs, nobj, pt_min=0.0, coll="truth"):
+    """
+    Select events containing at least ``nobj`` objects in ``coll`` above
+    ``pt_min``.
+
+    This is useful for turn-on variables such as VBF ``m_{jj}``, where the
+    denominator should match the truth-level multiplicity implied by the
+    trigger being studied (for example, a 3-jet trigger should only consider
+    events with at least three truth jets above that trigger threshold).
+    """
+    pt = pairs[f"{coll}_pt"]
+    return ak.to_numpy(ak.sum(pt >= pt_min, axis=1) >= nobj)
 
 def barrel_selector(pairs, nobj, maxeta=1.4, coll="truth"):
     """
