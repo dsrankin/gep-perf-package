@@ -24,6 +24,33 @@ os.makedirs(plotdir+'/debug', exist_ok=True)
 os.makedirs(resdir, exist_ok=True)
 
 EFFICIENCY_MARKERS = ('o', 's', '^', 'D', 'v', 'P', 'X', '*')
+MARKER_SIZE_SCALE = 1.5
+DEFAULT_MARKER_SIZE = 4 * MARKER_SIZE_SCALE
+DEFAULT_SCATTER_SIZE = (plt.rcParams['lines.markersize'] * MARKER_SIZE_SCALE) ** 2
+LEGEND_TOP_MARGIN = 0.78
+
+
+def marker_alpha(alpha: float) -> float:
+    if alpha in (0.0, 1.0):
+        return alpha
+    return 1 - (1 - alpha) * 0.5
+
+
+def place_legend_above(ax=None, *, title=None):
+    ax = ax or plt.gca()
+    handles, labels = ax.get_legend_handles_labels()
+    if not handles:
+        return None
+    legend = ax.legend(
+        loc='lower left',
+        bbox_to_anchor=(0, 1.02, 1, 0.2),
+        mode='expand',
+        ncol=max(1, len(handles)),
+        borderaxespad=0,
+        title=title,
+    )
+    ax.figure.subplots_adjust(top=LEGEND_TOP_MARGIN)
+    return legend
 
 
 def sanitize_plot_component(name: str) -> str:
@@ -1312,13 +1339,13 @@ def compute_response(pairs, pt_bins, eta_bins, min_pt=None, respcorrs=None, debu
             # Overlay the response
             plt.errorbar(x_centers, response_centers[bin_slice], 
                          yerr=response_uncs[bin_slice], 
-                         fmt='o-', color='r', alpha=0.25, label='Fit' if dofit else 'Median')
+                         fmt='o-', color='r', alpha=marker_alpha(0.25), markersize=DEFAULT_MARKER_SIZE, label='Fit' if dofit else 'Median')
             
             plt.axhline(1.0, color='k', linestyle='--')
             plt.ylabel(r"Response (Reco / Truth)")
             plt.xlabel(r"Truth $p_T$ [GeV]")
             plt.title(f"Eta: {eta_bins[ie]:.1f} - {eta_bins[ie+1]:.1f}")
-            plt.legend()
+            place_legend_above()
             
             # Ensure plotdir exists or handle path
             plot_name = build_debug_plot_path(debug, 'debug_%s_eta_%.1f_%.1f.pdf'%(debug,eta_bins[ie],eta_bins[ie+1]))
@@ -1335,13 +1362,13 @@ def compute_response(pairs, pt_bins, eta_bins, min_pt=None, respcorrs=None, debu
             x_centers = 0.5 * (pt_bins[:-1] + pt_bins[1:]) * response_centers[bin_slice]
             #plt.errorbar(x_centers, response_centers[bin_slice], 
             #             yerr=response_uncs[bin_slice], 
-            #             fmt='o-', color='r', alpha=0.25, label='Fit' if dofit else 'Median')
+            #             fmt='o-', color='r', alpha=marker_alpha(0.25), markersize=DEFAULT_MARKER_SIZE, label='Fit' if dofit else 'Median')
             
             plt.axhline(1.0, color='k', linestyle='--')
             plt.ylabel(r"Response (Reco / Truth)")
             plt.xlabel(r"Reco $p_T$ [GeV]")
             plt.title(f"Eta: {eta_bins[ie]:.1f} - {eta_bins[ie+1]:.1f}")
-            plt.legend()
+            place_legend_above()
             
             # Ensure plotdir exists or handle path
             plot_name = build_debug_plot_path(debug, 'debug_%s_reco_eta_%.1f_%.1f.pdf'%(debug,eta_bins[ie],eta_bins[ie+1]))
@@ -1631,14 +1658,14 @@ class ResponseInterpolator:
                          color='C%i'%i_eta, 
                          label=r"$%.2f<\eta<%.2f$"%(eta_bins[i_eta],eta_bins[i_eta+1])
                         )
-                plt.scatter(x,y,color='C%i'%i_eta, alpha=0.5)
+                plt.scatter(x, y, color='C%i'%i_eta, alpha=marker_alpha(0.5), s=DEFAULT_SCATTER_SIZE)
                 del x, y, order, spline, y_lo, y_hi, lam, x0, x1, x_eval, y_eval, y_plot
             
             # Clean up per-iteration arrays
             del R, valid
         plt.xlabel(r'$log(p_{T})$')
         plt.ylabel('R (reco/truth)')
-        plt.legend()
+        place_legend_above()
         plot_name = build_debug_plot_path(debug, 'debug_%s.pdf'%(debug))
         plt.savefig(plot_name, bbox_inches='tight')
         
@@ -1778,9 +1805,9 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
                     axs.hist(sigv,bins=bins,histtype='step',label='Truth' if 'truth' in var else reco_prefix)
                     ax.hist(bkgv,bins=bins,histtype='step',label='bkg : '+('Truth' if 'truth' in var else reco_prefix),weights=bkgw,density=True)
                     ax.hist(sigv,bins=bins,histtype='step',label='sig : '+('Truth' if 'truth' in var else reco_prefix),density=True)
-                axb.legend(bbox_to_anchor=(1.05, 1))
-                axs.legend(bbox_to_anchor=(1.05, 1))
-                ax.legend(bbox_to_anchor=(1.05, 1))
+                place_legend_above(axb)
+                place_legend_above(axs)
+                place_legend_above(ax)
                 if 'pt' in var:
                     axb.set_yscale('log')
                     axs.set_yscale('log')
@@ -1808,9 +1835,9 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
                         axs.hist(sigv,bins=bins,histtype='step',label='Truth' if 'truth' in var else reco_prefix)
                         ax.hist(bkgv,bins=bins,histtype='step',label='bkg : '+('Truth' if 'truth' in var else reco_prefix),weights=bkgw,density=True)
                         ax.hist(sigv,bins=bins,histtype='step',label='sig : '+('Truth' if 'truth' in var else reco_prefix),density=True)
-                    axb.legend(bbox_to_anchor=(1.05, 1))
-                    axs.legend(bbox_to_anchor=(1.05, 1))
-                    ax.legend(bbox_to_anchor=(1.05, 1))
+                    place_legend_above(axb)
+                    place_legend_above(axs)
+                    place_legend_above(ax)
                     figb.savefig(build_debug_plot_path(config.name, 'debug_bkg_%s%s_nocorr_%s.pdf'%(prefix,var,config.name)), bbox_inches='tight')
                     figs.savefig(build_debug_plot_path(config.name, 'debug_sig_%s%s_nocorr_%s.pdf'%(prefix,var,config.name)), bbox_inches='tight')
                     fig.savefig(build_debug_plot_path(config.name, 'debug_%s%s_nocorr_%s.pdf'%(prefix,var,config.name)), bbox_inches='tight')
@@ -2089,9 +2116,9 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
                     axs.hist(sigv,bins=bins,histtype='step',label='Truth' if 'truth' in var else reco_prefix)
                     ax.hist(bkgv,bins=bins,histtype='step',label='bkg : '+('Truth' if 'truth' in var else reco_prefix),weights=bkgw,density=True)
                     ax.hist(sigv,bins=bins,histtype='step',label='sig : '+('Truth' if 'truth' in var else reco_prefix),density=True)
-                axb.legend(bbox_to_anchor=(1.05, 1))
-                axs.legend(bbox_to_anchor=(1.05, 1))
-                ax.legend(bbox_to_anchor=(1.05, 1))
+                place_legend_above(axb)
+                place_legend_above(axs)
+                place_legend_above(ax)
                 if 'pt' in var:
                     axb.set_yscale('log')
                     axs.set_yscale('log')
@@ -2119,9 +2146,9 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
                         axs.hist(sigv,bins=bins,histtype='step',label='Truth' if 'truth' in var else reco_prefix)
                         ax.hist(bkgv,bins=bins,histtype='step',label='bkg : '+('Truth' if 'truth' in var else reco_prefix),weights=bkgw,density=True)
                         ax.hist(sigv,bins=bins,histtype='step',label='sig : '+('Truth' if 'truth' in var else reco_prefix),density=True)
-                    axb.legend(bbox_to_anchor=(1.05, 1))
-                    axs.legend(bbox_to_anchor=(1.05, 1))
-                    ax.legend(bbox_to_anchor=(1.05, 1))
+                    place_legend_above(axb)
+                    place_legend_above(axs)
+                    place_legend_above(ax)
                     figb.savefig(build_debug_plot_path(config.name, 'debug_bkg_%s%s_%s.pdf'%(prefix,var,config.name)), bbox_inches='tight')
                     figs.savefig(build_debug_plot_path(config.name, 'debug_sig_%s%s_%s.pdf'%(prefix,var,config.name)), bbox_inches='tight')
                     fig.savefig(build_debug_plot_path(config.name, 'debug_%s%s_%s.pdf'%(prefix,var,config.name)), bbox_inches='tight')
@@ -2234,14 +2261,14 @@ def overlay_efficiency(results, suffix="", titletxt="", nobj=1, xmax=-1., noerr=
         xmask = (turnon_centers < xmax) if xmax>0. else np.ones(len(turnon_centers),dtype=bool)
         params[i],_ = fit_logistic(turnon_centers[xmask], r.signal_efficiency[xmask], np.mean(r.signal_efficiency_error,axis=0)[xmask])
         label_full = result_reco_label(r)+r' [$p_T$>'+('%.1f'%r.threshold)+'] ($\\sigma$='+('%.2f'%(1./params[i][1]))+', $p_T^{98\\%}$='+('%.2f'%(params[i][2]+np.log(49)/params[i][1]))+')'
-        plt.errorbar(turnon_centers[xmask], r.signal_efficiency[xmask], None if noerr else r.signal_efficiency_error[:,xmask], marker=marker, label=label_full, color='C%i'%i, capsize=3, capthick=2, linestyle='none', mfc='none', alpha=0.5, markersize=4)
+        plt.errorbar(turnon_centers[xmask], r.signal_efficiency[xmask], None if noerr else r.signal_efficiency_error[:,xmask], marker=marker, label=label_full, color='C%i'%i, capsize=3, capthick=2, linestyle='none', mfc='none', alpha=marker_alpha(0.5), markersize=DEFAULT_MARKER_SIZE)
         if params[i][0]==-1:
             plt.plot(turnon_centers[xmask], logistic_function(turnon_centers[xmask],*params[i]), color='C%i'%i, linestyle='dashed')
 
     plt.xlabel(r"%s%s"%(numtext[nobj], turnon_label))
     plt.ylabel("Signal efficiency")
     plt.ylim(0,1.1)
-    plt.legend(bbox_to_anchor=(1.05, 1),title=titletxt)
+    place_legend_above(title=titletxt)
     plt.grid(True)
     plt.savefig(build_plot_path('efficiency%s.pdf'%suffix), bbox_inches='tight')
 
@@ -2254,14 +2281,14 @@ def overlay_efficiency(results, suffix="", titletxt="", nobj=1, xmax=-1., noerr=
         shiftmask = turnon_centers < (params[i][2]+3.*np.log(49)/params[i][1]) # 2x the shift from 50 to 98 to make sure its visible
         params_adj,_ = fit_logistic(turnon_centers[shiftmask]-(params[i][2]+np.log(49)/params[i][1]), r.signal_efficiency[shiftmask], np.mean(r.signal_efficiency_error,axis=0)[shiftmask])
         label_full = result_reco_label(r)+r' [$p_T$>'+('%.1f'%r.threshold)+'] ($\\hat{\\sigma}$='+('%.2f'%(1./params_adj[1]))+', $\\hat{p}_T^{98\\%}$='+('%.2f'%(params_adj[2]+np.log(49)/params_adj[1]))+')'
-        plt.errorbar(turnon_centers[shiftmask]-(params[i][2]+np.log(49)/params[i][1]), r.signal_efficiency[shiftmask], None if noerr else r.signal_efficiency_error[:,shiftmask], marker=marker, label=label_full, color='C%i'%i, capsize=3, capthick=2, linestyle='none', mfc='none', alpha=0.5, markersize=4)
+        plt.errorbar(turnon_centers[shiftmask]-(params[i][2]+np.log(49)/params[i][1]), r.signal_efficiency[shiftmask], None if noerr else r.signal_efficiency_error[:,shiftmask], marker=marker, label=label_full, color='C%i'%i, capsize=3, capthick=2, linestyle='none', mfc='none', alpha=marker_alpha(0.5), markersize=DEFAULT_MARKER_SIZE)
         if params[i][0]==-1:
             plt.plot(turnon_centers[shiftmask]-(params[i][2]+np.log(49)/params[i][1]), logistic_function(turnon_centers[shiftmask]-(params[i][2]+np.log(49)/params[i][1]),*params_adj), color='C%i'%i, linestyle='dashed')
 
     plt.xlabel(r"%s$\Delta$ %s"%(numtext[nobj],turnon_label))
     plt.ylabel("Signal efficiency")
     plt.ylim(0,1.1)
-    plt.legend(bbox_to_anchor=(1.05, 1),title=titletxt)
+    place_legend_above(title=titletxt)
     plt.grid(True)
     plt.savefig(build_plot_path('efficiency%s_corr.pdf'%suffix), bbox_inches='tight')
 
@@ -2276,13 +2303,13 @@ def overlay_resp_resol(results, corr=False, prefix=""):
             plt.errorbar(pt_centers+(pt_widths)*((0.5*nres)-float(i)), 
                          (r.response_corr if corr else r.response_uncorr)[ie*len(pt_centers):(ie+1)*len(pt_centers)], 
                          (r.resol_corr if corr else r.resol_uncorr)[ie*len(pt_centers):(ie+1)*len(pt_centers)],
-                         marker='o', color='C%i'%i, capsize=3, capthick=2, linestyle='none', alpha=0.5, markersize=4,
+                         marker='o', color='C%i'%i, capsize=3, capthick=2, linestyle='none', alpha=marker_alpha(0.5), markersize=DEFAULT_MARKER_SIZE,
                          label=result_reco_label(r)+", "+r.name)
 
         plt.ylabel(r"%sResponse (Reco $p_T$ / Truth $p_T$)"%("Corrected " if corr else ""))
         plt.xlabel(r"Truth $p_T$ [GeV]")
         plt.title(r"$%.2f<\eta<%.2f$"%(r.truth_eta_bins[ie],r.truth_eta_bins[ie+1]))
-        plt.legend(bbox_to_anchor=(1.05, 1))
+        place_legend_above()
         plt.grid(True)
         plt.savefig(build_plot_path(prefix+'response'+("_corr" if corr else "")+'_eta_%.2f_%.2f.pdf'%(r.truth_eta_bins[ie],r.truth_eta_bins[ie+1])), bbox_inches='tight')
 
@@ -2292,13 +2319,13 @@ def overlay_resp_resol(results, corr=False, prefix=""):
             pt_centers = 0.5*(r.truth_pt_bins[:-1]+r.truth_pt_bins[1:])
             plt.plot(pt_centers+(pt_widths)*((0.5*nres)-float(i)), 
                          (r.resol_corr if corr else r.resol_uncorr)[ie*len(pt_centers):(ie+1)*len(pt_centers)], 
-                         marker='o', color='C%i'%i, linestyle='none', alpha=0.5, markersize=4,
+                         marker='o', color='C%i'%i, linestyle='none', alpha=marker_alpha(0.5), markersize=DEFAULT_MARKER_SIZE,
                          label=result_reco_label(r)+", "+r.name)
 
         plt.ylabel(r"%sResolution"%("Corrected " if corr else ""))
         plt.xlabel(r"Truth $p_T$ [GeV]")
         plt.title(r"$%.2f<\eta<%.2f$"%(r.truth_eta_bins[ie],r.truth_eta_bins[ie+1]))
-        plt.legend(bbox_to_anchor=(1.05, 1))
+        place_legend_above()
         plt.grid(True)
         plt.savefig(build_plot_path(prefix+'resol'+("_corr" if corr else "")+'_eta_%.2f_%.2f.pdf'%(r.truth_eta_bins[ie],r.truth_eta_bins[ie+1])), bbox_inches='tight')
 
@@ -2318,11 +2345,11 @@ def overlay_full_effs(results, suffix="", nobj=1, xmax=-1.):
         plt.errorbar(r.truth_pt_bins[xmask],
                      r.full_sig_efficiency[xmask],
                      yerr=r.full_sig_efficiency_error[:,xmask],
-                     marker=marker, color='C%i'%i, linestyle='none', alpha=0.5, markersize=4,
+                     marker=marker, color='C%i'%i, linestyle='none', alpha=marker_alpha(0.5), markersize=DEFAULT_MARKER_SIZE,
                      label=result_reco_label(r))
     plt.ylabel(r"Signal efficiency")
     plt.xlabel(r"%s $p_T$ [GeV]"%numtext[nobj])
-    plt.legend(bbox_to_anchor=(1.05, 1))
+    place_legend_above()
     plt.grid(True)
     plt.savefig(build_plot_path('efficiency_full_signal%s.pdf'%(suffix)), bbox_inches='tight')
     
@@ -2334,13 +2361,13 @@ def overlay_full_effs(results, suffix="", nobj=1, xmax=-1.):
         plt.errorbar(r.truth_pt_bins[xmask],
                      r.full_bkg_efficiency[xmask]*31_000.,
                      yerr=r.full_bkg_efficiency_error[:,xmask]*31_000.,
-                     marker=marker, color='C%i'%i, linestyle='none', alpha=0.5, markersize=4,
+                     marker=marker, color='C%i'%i, linestyle='none', alpha=marker_alpha(0.5), markersize=DEFAULT_MARKER_SIZE,
                      label=result_reco_label(r))
     plt.ylabel(r"Background rate [kHz]")
     plt.ylim(1,9e4)
     plt.yscale('log')
     plt.xlabel(r"%s $p_T$ [GeV]"%numtext[nobj])
-    plt.legend(bbox_to_anchor=(1.05, 1))
+    place_legend_above()
     plt.grid(True)
     plt.savefig(build_plot_path('efficiency_full_background%s.pdf'%(suffix)), bbox_inches='tight')
     
@@ -2353,14 +2380,14 @@ def overlay_full_effs(results, suffix="", nobj=1, xmax=-1.):
                      r.full_bkg_efficiency*31_000.,
                      xerr=r.full_sig_efficiency_error,
                      yerr=r.full_bkg_efficiency_error*31_000.,
-                     marker=marker, color='C%i'%i, linestyle='none', alpha=0.5, markersize=4,
+                     marker=marker, color='C%i'%i, linestyle='none', alpha=marker_alpha(0.5), markersize=DEFAULT_MARKER_SIZE,
                      label=result_reco_label(r))
     plt.ylabel(r"Background rate [kHz]")
     plt.ylim(1,9e4)
     plt.yscale('log')
     plt.xlabel(r"Signal efficiency")
     plt.title(numtext[nobj]+" "+results[0].name)
-    plt.legend(bbox_to_anchor=(1.05, 1))
+    place_legend_above()
     plt.grid(True)
     plt.savefig(build_plot_path('efficiency_full_combined%s.pdf'%(suffix)), bbox_inches='tight')
 
