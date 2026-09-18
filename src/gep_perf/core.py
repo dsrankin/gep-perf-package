@@ -173,33 +173,213 @@ def delta_phi(phi1,phi2):
     dphi = dphi-2*np.pi*(dphi>np.pi).astype(np.float32)
     return dphi
 
+
+def delta_phi_awkward(phi1, phi2):
+    """Awkward array version of delta_phi"""
+    dphi = phi1 - phi2
+    return ak.where(dphi > np.pi, dphi - 2*np.pi,
+                    ak.where(dphi < -np.pi, dphi + 2*np.pi, dphi))
+
+
+def _wrap_dphi(dphi):
+    """Wrap a numpy array of phi differences into (-pi, pi] (same convention as delta_phi_awkward)."""
+    dphi = np.where(dphi > np.pi, dphi - 2 * np.pi, dphi)
+    return np.where(dphi < -np.pi, dphi + 2 * np.pi, dphi)
+
+
+def _jagged_to_flat(arr, scale=None, dtype=np.float32):
+    """
+    Flatten a jagged (events x var) awkward array into (flat numpy array, counts per event).
+    The flat array is converted to ``dtype`` and optionally divided by ``scale``.
+    """
+    counts = np.asarray(ak.to_numpy(ak.num(arr, axis=1)), dtype=np.int64)
+    flat = np.asarray(ak.to_numpy(ak.flatten(arr, axis=1)))
+    if scale is not None:
+        flat = flat / scale
+    return np.asarray(flat, dtype=dtype), counts
+
+
+def _apply_flat_mask(mask, counts, *arrays):
+    """Apply a per-object boolean mask to flat arrays and recompute the per-event counts."""
+    nev = counts.shape[0]
+    ev = np.repeat(np.arange(nev, dtype=np.int64), counts)
+    new_counts = np.bincount(ev[mask], minlength=nev).astype(np.int64)
+    return tuple(a[mask] for a in arrays) + (new_counts,)
+
+
+def compute_isolation_flat(eta, phi, counts, iso_dr):
+    """
+    Isolation mask for flat (eta, phi) arrays grouped by ``counts`` per event.
+    Returns True if no OTHER object in the same event is within ``iso_dr``
+    (pairs at exactly zero distance are ignored, as in the original 3D version).
+
+    Objects are sorted by eta inside each event so that only neighbours with
+    |d_eta| < iso_dr are ever compared: O(n * window) instead of O(n^2) per event.
+    """
+    n = eta.shape[0]
+    if n == 0 or iso_dr <= 0.:
+        return np.ones(n, dtype=bool)
+
+    ev = np.repeat(np.arange(counts.shape[0], dtype=np.int64), counts)
+    order = np.lexsort((eta, ev))
+    eta_s = eta[order]
+    phi_s = phi[order]
+    ev_s = ev[order]
+
+    has_nearby = np.zeros(n, dtype=bool)
+    iso2 = iso_dr * iso_dr
+    k = 1
+    while k < n:
+        d_eta = eta_s[k:] - eta_s[:-k]
+        cand = np.flatnonzero((ev_s[k:] == ev_s[:-k]) & (d_eta < iso_dr))
+        if cand.size == 0:
+            # eta is sorted within each event, so larger offsets cannot be closer
+            break
+        d_phi = _wrap_dphi(phi_s[cand + k] - phi_s[cand])
+        dr2 = d_eta[cand] ** 2 + d_phi ** 2
+        close = cand[(dr2 < iso2) & (dr2 > 0)]
+        has_nearby[close] = True
+        has_nearby[close + k] = True
+        k += 1
+
+    isolated = np.empty(n, dtype=bool)
+    isolated[order] = ~has_nearby
+    return isolated
+
+
+def match_flat(r_pt, r_eta, r_phi, r_counts, t_pt, t_eta, t_phi, t_counts,
+               dr_max, riso, tiso, ptmin, k=4, extra_vars=None):
+    """
+    Non-greedy truth->reco matching on flat numpy arrays (events described by counts).
+    Each truth object matches its closest isolated reco object within dr_max.
+
+    Returns a dict of flat float32 arrays plus ``counts`` per event. Per event the
+    output rows are: one row per truth object (reco values NaN when unmatched),
+    followed by up to ``k`` leading-pt unmatched reco objects (truth values NaN).
+    """
+    nan32 = np.float32(np.nan)
+    nev = r_counts.shape[0]
+    n_r = r_pt.shape[0]
+    n_t = t_pt.shape[0]
+
+    r_start = np.cumsum(r_counts) - r_counts
+    t_start = np.cumsum(t_counts) - t_counts
+    t_ev = np.repeat(np.arange(nev, dtype=np.int64), t_counts)
+
+    # ---- truth x reco pairs (per truth: all reco in the same event) ----
+    seg_len = r_counts[t_ev]                       # reco multiplicity of each truth's event
+    seg_start = np.cumsum(seg_len) - seg_len
+    n_pairs = int(seg_len.sum())
+    p_t = np.repeat(np.arange(n_t, dtype=np.int64), seg_len)
+    p_r = r_start[t_ev[p_t]] + (np.arange(n_pairs, dtype=np.int64) - seg_start[p_t])
+
+    d_eta = t_eta[p_t] - r_eta[p_r]
+    d_phi = _wrap_dphi(t_phi[p_t] - r_phi[p_r])
+    dr2 = d_eta ** 2 + d_phi ** 2
+    del d_eta, d_phi
+    valid = (dr2 < (dr_max ** 2)) & riso[p_r] & tiso[p_t]
+    dr2 = np.where(valid, dr2, np.inf)
+    del valid
+
+    # ---- closest reco per truth (first minimum, +inf means no match) ----
+    min_dr2 = np.full(n_t, np.inf, dtype=dr2.dtype)
+    arg_pair = np.zeros(n_t, dtype=np.int64)
+    has_seg = seg_len > 0
+    if n_pairs > 0:
+        st = seg_start[has_seg]
+        min_dr2[has_seg] = np.minimum.reduceat(dr2, st)
+        is_min = dr2 == np.repeat(min_dr2[has_seg], seg_len[has_seg])
+        arg_pair[has_seg] = np.minimum.reduceat(
+            np.where(is_min, np.arange(n_pairs, dtype=np.int64), n_pairs), st
+        )
+        del is_min
+    del dr2
+    has_match = min_dr2 < np.inf
+    # global reco index matched to each truth (0 placeholder where unmatched)
+    match_r = p_r[arg_pair] if n_pairs > 0 else np.zeros(n_t, dtype=np.int64)
+
+    def gather(a, idx):
+        return a[idx] if a.shape[0] > 0 else np.full(idx.shape[0], np.nan, dtype=np.float32)
+
+    matched_pt = gather(r_pt, match_r)
+    has_match &= matched_pt > ptmin
+    matched_pt = np.where(has_match, matched_pt, nan32)
+    matched_eta = np.where(has_match, gather(r_eta, match_r), nan32)
+    matched_phi = np.where(has_match, gather(r_phi, match_r), nan32)
+
+    reco_was_matched = np.zeros(n_r, dtype=bool)
+    reco_was_matched[match_r[has_match]] = True
+
+    # ---- unmatched reco: keep the k leading in pt per event ----
+    keep_idx = np.flatnonzero((~reco_was_matched) & (r_pt > ptmin))
+    r_ev = np.repeat(np.arange(nev, dtype=np.int64), r_counts)
+    u_ev = r_ev[keep_idx]
+    order = np.lexsort((-r_pt[keep_idx], u_ev))   # stable: event, then descending pt
+    keep_idx = keep_idx[order]
+    u_ev = u_ev[order]
+    u_all = np.bincount(u_ev, minlength=nev)
+    rank = np.arange(keep_idx.shape[0], dtype=np.int64) - (np.cumsum(u_all) - u_all)[u_ev]
+    top = rank < k
+    u_idx = keep_idx[top]
+    u_ev = u_ev[top]
+    u_rank = rank[top]
+    u_counts = np.minimum(u_all, k).astype(np.int64)
+
+    # ---- assemble output rows: truth rows first, then unmatched reco rows ----
+    out_counts = t_counts + u_counts
+    out_start = np.cumsum(out_counts) - out_counts
+    t_pos = out_start[t_ev] + (np.arange(n_t, dtype=np.int64) - t_start[t_ev])
+    u_pos = out_start[u_ev] + t_counts[u_ev] + u_rank
+    n_out = int(out_counts.sum())
+    u_nan = np.full(u_idx.shape[0], np.nan, dtype=np.float32)
+
+    def assemble(t_vals, u_vals):
+        out = np.empty(n_out, dtype=np.float32)
+        out[t_pos] = t_vals
+        out[u_pos] = u_vals
+        return out
+
+    output = {
+        'counts': out_counts,
+        'reco_pt': assemble(matched_pt, r_pt[u_idx]),
+        'reco_eta': assemble(matched_eta, r_eta[u_idx]),
+        'reco_phi': assemble(matched_phi, r_phi[u_idx]),
+        'truth_pt': assemble(t_pt, u_nan),
+        'truth_eta': assemble(t_eta, u_nan),
+        'truth_phi': assemble(t_phi, u_nan),
+    }
+    if extra_vars:
+        for extra_name, r_extra in extra_vars.items():
+            matched_extra = np.where(has_match, gather(r_extra, match_r), nan32)
+            output[f'reco_{extra_name}'] = assemble(matched_extra, r_extra[u_idx])
+    return output
+
+
 def match_chunk_vectorized(chunk, reco_prefixes, reco_branches, truth_branches, dr_max,
                           reco_iso_dr=0.4, truth_iso_dr=0.4,
                           reco_pt_min=None, truth_pt_min=None, pt_min=None,
                           extra_vars_by_prefix=None, reco_extra_branches=None):
     """
-    Vectorized matching for an entire chunk of events using awkward arrays.
+    Matching for an entire chunk of events.
     Non-greedy: each truth object matches to its closest reco object within dr_max.
-    Returns dictionaries of awkward arrays indexed by reco_prefix.
+    Returns {reco_prefix: {'counts': ..., 'reco_pt': ..., ..., 'reco_<extra>': ...}}
+    of flat float32 numpy arrays (see match_flat).
     """
-    # Extract truth arrays once (shared across all reco prefixes)
-    t_pt = chunk[truth_branches[0]]
-    t_eta = chunk[truth_branches[1]]
-    t_phi = chunk[truth_branches[2]]
-    
+    # Extract truth arrays once (shared across all reco prefixes); pt is MeV -> GeV
+    t_pt, t_counts = _jagged_to_flat(chunk[truth_branches[0]], scale=1000.0)
+    t_eta, _ = _jagged_to_flat(chunk[truth_branches[1]])
+    t_phi, _ = _jagged_to_flat(chunk[truth_branches[2]])
+
     if pt_min is None:
         pt_min = -1.
 
     # Apply truth pT cuts if specified
     if truth_pt_min is not None:
-        t_mask = t_pt > truth_pt_min
-        t_pt = t_pt[t_mask]
-        t_eta = t_eta[t_mask]
-        t_phi = t_phi[t_mask]
-    
-    # Apply truth isolation if specified
-    t_isolated = compute_isolation_awkward(t_eta, t_phi, truth_iso_dr)
-    
+        t_pt, t_eta, t_phi, t_counts = _apply_flat_mask(t_pt > truth_pt_min, t_counts, t_pt, t_eta, t_phi)
+
+    # Truth isolation
+    t_isolated = compute_isolation_flat(t_eta, t_phi, t_counts, truth_iso_dr)
+
     if extra_vars_by_prefix is None:
         extra_vars_by_prefix = {}
     if reco_extra_branches is None:
@@ -211,189 +391,37 @@ def match_chunk_vectorized(chunk, reco_prefixes, reco_branches, truth_branches, 
             for reco_prefix in reco_prefixes
         }
 
-    results = {
-        'reco_pt': {}, 'reco_eta': {}, 'reco_phi': {},
-        'truth_pt': {}, 'truth_eta': {}, 'truth_phi': {},
-        'reco_extra': {},
-    }
-    
+    results = {}
     for reco_prefix in reco_prefixes:
-        r_pt = chunk[reco_branches[reco_prefix][0]]
-        r_eta = chunk[reco_branches[reco_prefix][1]]
-        r_phi = chunk[reco_branches[reco_prefix][2]]
-        r_extra = {}
-        for extra_name in extra_vars_by_prefix.get(reco_prefix, []):
-            r_extra[extra_name] = chunk[reco_extra_branches[reco_prefix][extra_name]]
+        r_pt, r_counts = _jagged_to_flat(chunk[reco_branches[reco_prefix][0]], scale=1000.0)
+        r_eta, _ = _jagged_to_flat(chunk[reco_branches[reco_prefix][1]])
+        r_phi, _ = _jagged_to_flat(chunk[reco_branches[reco_prefix][2]])
+        extra_names = list(extra_vars_by_prefix.get(reco_prefix, []))
+        r_extra_list = [
+            _jagged_to_flat(chunk[reco_extra_branches[reco_prefix][extra_name]])[0]
+            for extra_name in extra_names
+        ]
 
-        # Apply pT cuts if specified
+        # Apply pT cut
         r_mask = r_pt > pt_min
-        r_pt = r_pt[r_mask]
-        r_eta = r_eta[r_mask]
-        r_phi = r_phi[r_mask]
-        for extra_name in r_extra:
-            r_extra[extra_name] = r_extra[extra_name][r_mask]
-        
-        # Apply reco isolation if specified
-        r_isolated = compute_isolation_awkward(r_eta, r_phi, reco_iso_dr)
-
-        if truth_pt_min is not None:
-            r_isolated = r_isolated & (r_pt > reco_pt_min)
-        
-        # Full vectorized matching
-        matched = match_awkward_full(
-            r_pt,
-            r_eta,
-            r_phi,
-            t_pt,
-            t_eta,
-            t_phi,
-            dr_max,
-            r_isolated,
-            t_isolated,
-            pt_min,
-            extra_vars=r_extra,
+        r_pt, r_eta, r_phi, *r_extra_list, r_counts = _apply_flat_mask(
+            r_mask, r_counts, r_pt, r_eta, r_phi, *r_extra_list
         )
-        
-        results['reco_pt'][reco_prefix] = matched['reco_pt']
-        results['reco_eta'][reco_prefix] = matched['reco_eta']
-        results['reco_phi'][reco_prefix] = matched['reco_phi']
-        results['truth_pt'][reco_prefix] = matched['truth_pt']
-        results['truth_eta'][reco_prefix] = matched['truth_eta']
-        results['truth_phi'][reco_prefix] = matched['truth_phi']
-        results['reco_extra'][reco_prefix] = matched.get('reco_extra', {})
-    
+        del r_mask
+
+        # Reco isolation (+ minimum reco pt for matching)
+        r_isolated = compute_isolation_flat(r_eta, r_phi, r_counts, reco_iso_dr)
+        if reco_pt_min is not None:
+            r_isolated &= r_pt > reco_pt_min
+
+        results[reco_prefix] = match_flat(
+            r_pt, r_eta, r_phi, r_counts,
+            t_pt, t_eta, t_phi, t_counts,
+            dr_max, r_isolated, t_isolated, pt_min,
+            extra_vars=dict(zip(extra_names, r_extra_list)),
+        )
+
     return results
-
-
-def delta_phi_awkward(phi1, phi2):
-    """Awkward array version of delta_phi"""
-    dphi = phi1 - phi2
-    return ak.where(dphi > np.pi, dphi - 2*np.pi, 
-                    ak.where(dphi < -np.pi, dphi + 2*np.pi, dphi))
-
-
-def compute_isolation_awkward(eta, phi, iso_dr):
-    """
-    Compute isolation mask for awkward arrays.
-    Returns True if object is isolated (no other object within iso_dr).
-    Shape: (n_events, n_objects_per_event)
-    """
-    # Compute pairwise distances within each event
-    # Broadcasting: (events, objects, 1) vs (events, 1, objects)
-    d_eta = eta[:, :, np.newaxis] - eta[:, np.newaxis, :]
-    d_phi = delta_phi_awkward(phi[:, :, np.newaxis], phi[:, np.newaxis, :])
-    dr2 = d_eta**2 + d_phi**2
-    
-    # Check if any OTHER object is too close (dr2 > 0 excludes self)
-    has_nearby = ak.any((dr2 < iso_dr**2) & (dr2 > 0), axis=2)
-    
-    return ~has_nearby
-
-def match_awkward_full(r_pt, r_eta, r_phi, t_pt, t_eta, t_phi, dr_max, riso, tiso, ptmin, k=4, extra_vars=None):
-    """
-    Full vectorized matching using awkward arrays.
-    Non-greedy: each truth object matches to closest reco within dr_max.
-    
-    Parameters:
-    -----------
-    riso : awkward array, same shape as r_pt
-        If True, the reco jet is marked as isolated and will not be matched
-    tiso : awkward array, same shape as t_pt
-        If True, the truth jet is marked as isolated and will not be matched
-    """
-    # ---- pairwise distances (ragged broadcasting) ----
-    # shapes: (n_events, n_truth, n_reco)
-    d_eta = t_eta[:, :, np.newaxis] - r_eta[:, np.newaxis, :]
-    d_phi = delta_phi_awkward(t_phi[:, :, np.newaxis], r_phi[:, np.newaxis, :])
-    dr2 = d_eta**2 + d_phi**2
-
-    # ---- apply isolation masks ----
-    # riso: (n_events, n_reco) -> (n_events, 1, n_reco)
-    # tiso: (n_events, n_truth) -> (n_events, n_truth, 1)
-    riso_b = riso[:, np.newaxis, :]
-    tiso_b = tiso[:, :, np.newaxis]
-    isolated_pair = riso_b & tiso_b   # True where both jets are isolated
-    valid = (dr2 < (dr_max**2)) & isolated_pair
-
-    # Mask dr2 for argmin; invalid entries -> +inf
-    dr2_masked = ak.where(valid, dr2, np.inf)
-
-    # Closest reco index per truth (per-event ragged indexing)
-    closest_reco_idx = ak.argmin(dr2_masked, axis=2)   # shape (n_events, n_truth)
-    # has_match True where dr2_masked < inf
-    has_match = ak.min(dr2_masked, axis=2) < np.inf
-
-    # ---- extract matched reco values per truth ----
-    matched_pt  = r_pt[closest_reco_idx]
-    matched_eta = r_eta[closest_reco_idx]
-    matched_phi = r_phi[closest_reco_idx]
-    
-    has_match = has_match & (matched_pt>ptmin)
-
-    # Replace non-matches with NaN
-    matched_eta = ak.where(has_match, matched_eta, np.nan)
-    matched_phi = ak.where(has_match, matched_phi, np.nan)
-    matched_pt = ak.where(has_match, matched_pt, np.nan)
-
-    # ---- identify reco objects used in any match ----
-    # matched_indices: sentinel -1 where truth had no match
-    matched_indices = ak.where(has_match, closest_reco_idx, -1)
-
-    reco_local_idx = ak.local_index(r_pt, axis=1)   # (n_events, n_reco)
-    # For each reco, check if equals any matched index in its event (broadcast compare)
-    reco_was_matched = ak.any(reco_local_idx[:, :, np.newaxis] == matched_indices[:, np.newaxis, :], axis=2) # ak.any((n_events, n_reco, n_truth), axis=2) -> (n_events, n_reco)
-
-    # ---- unmatched reco arrays ----
-    unmatched_reco_eta = r_eta[(~reco_was_matched) & (r_pt>ptmin)]
-    unmatched_reco_phi = r_phi[(~reco_was_matched) & (r_pt>ptmin)]
-    unmatched_reco_pt = r_pt[(~reco_was_matched) & (r_pt>ptmin)]
-    
-    # ---- sort by reco pt ----
-    order = ak.argsort(unmatched_reco_pt, axis=1, ascending=False)
-    unmatched_reco_eta = unmatched_reco_eta[order]
-    unmatched_reco_phi = unmatched_reco_phi[order]
-    unmatched_reco_pt = unmatched_reco_pt[order]
-    
-    # ---- keep top k ----
-    unmatched_reco_eta = unmatched_reco_eta[:,:k]
-    unmatched_reco_phi = unmatched_reco_phi[:,:k]
-    unmatched_reco_pt = unmatched_reco_pt[:,:k]
-
-    # corresponding NaN truth placeholders for unmatched reco
-    unmatched_truth_pt = ak.broadcast_arrays(np.nan, unmatched_reco_pt)[0]
-    unmatched_truth_eta = ak.broadcast_arrays(np.nan, unmatched_reco_eta)[0]
-    unmatched_truth_phi = ak.broadcast_arrays(np.nan, unmatched_reco_phi)[0]
-
-    # ---- concatenate matched truths + unmatched reco-rows ----
-    reco_pt_out = ak.concatenate([matched_pt, unmatched_reco_pt], axis=1)
-    reco_eta_out = ak.concatenate([matched_eta, unmatched_reco_eta], axis=1)
-    reco_phi_out = ak.concatenate([matched_phi, unmatched_reco_phi], axis=1)
-
-    truth_pt_out = ak.concatenate([t_pt, unmatched_truth_pt], axis=1)
-    truth_eta_out = ak.concatenate([t_eta, unmatched_truth_eta], axis=1)
-    truth_phi_out = ak.concatenate([t_phi, unmatched_truth_phi], axis=1)
-
-    output = {
-        'reco_pt': reco_pt_out,
-        'reco_eta': reco_eta_out,
-        'reco_phi': reco_phi_out,
-        'truth_pt': truth_pt_out,
-        'truth_eta': truth_eta_out,
-        'truth_phi': truth_phi_out,
-    }
-
-    if extra_vars:
-        reco_extra_out = {}
-        for extra_name, r_extra in extra_vars.items():
-            matched_extra = r_extra[closest_reco_idx]
-            matched_extra = ak.where(has_match, matched_extra, np.nan)
-            unmatched_extra = r_extra[(~reco_was_matched) & (r_pt > ptmin)]
-            unmatched_extra = unmatched_extra[order]
-            unmatched_extra = unmatched_extra[:,:k]
-            reco_extra_out[extra_name] = ak.concatenate([matched_extra, unmatched_extra], axis=1)
-        output['reco_extra'] = reco_extra_out
-
-    return output
 
 
 def _normalize_extra_vars(reco_prefixes, extra_vars):
@@ -524,33 +552,19 @@ def match_reco_truth(
         branches.extend(reco_extra_branches[reco_prefix].values())
     branches = list(dict.fromkeys(branches))
 
-    pt_branches = list(dict.fromkeys([reco_branches[r][0] for r in reco_branches] + truth_branches[:1]))
-    eta_branches = list(dict.fromkeys([reco_branches[r][1] for r in reco_branches] + truth_branches[1:2]))
-    phi_branches = list(dict.fromkeys([reco_branches[r][2] for r in reco_branches] + truth_branches[2:]))
-    extra_branches = list(
-        dict.fromkeys(
-            [
-                extra_branch
-                for reco_prefix in reco_prefixes
-                for extra_branch in reco_extra_branches[reco_prefix].values()
-            ]
-        )
-    )
-
-    # Accumulators for awkward arrays
+    # Accumulators: per reco prefix, lists of flat numpy arrays (one per chunk) + per-event counts
+    base_fields = ["reco_pt", "reco_eta", "reco_phi", "truth_pt", "truth_eta", "truth_phi"]
+    fields_by_prefix = {
+        reco_prefix: base_fields + [f"reco_{extra_name}" for extra_name in extra_vars_by_prefix[reco_prefix]]
+        for reco_prefix in reco_prefixes
+    }
+    acc = {
+        reco_prefix: {name: [] for name in ["counts"] + fields_by_prefix[reco_prefix]}
+        for reco_prefix in reco_prefixes
+    }
     event_ids = []
     event_weights = []
     event_rhos = []
-    reco_pts = {reco_prefix:[] for reco_prefix in reco_prefixes}
-    reco_etas = {reco_prefix:[] for reco_prefix in reco_prefixes}
-    reco_phis = {reco_prefix:[] for reco_prefix in reco_prefixes}
-    truth_pts = {reco_prefix:[] for reco_prefix in reco_prefixes}
-    truth_etas = {reco_prefix:[] for reco_prefix in reco_prefixes}
-    truth_phis = {reco_prefix:[] for reco_prefix in reco_prefixes}
-    reco_extras = {
-        reco_prefix: {extra_name: [] for extra_name in extra_vars_by_prefix[reco_prefix]}
-        for reco_prefix in reco_prefixes
-    }
 
     def process_file(filename, weight):
         with uproot.open(filename) as ftmp:
@@ -567,49 +581,45 @@ def match_reco_truth(
 
         event_offset = 0
         file_weights = []
-        file_rhos = []
 
         for chunk in tqdm(it, total=total_chunks, desc=f"{filename}"):
-            for name in pt_branches:
-                chunk = ak.with_field(chunk, ak.values_astype(chunk[name] / 1000.0, np.float32), name)
-            for name in eta_branches:
-                chunk = ak.with_field(chunk, ak.values_astype(chunk[name], np.float32), name)
-            for name in phi_branches:
-                chunk = ak.with_field(chunk, ak.values_astype(chunk[name], np.float32), name)
-            for name in extra_branches:
-                chunk = ak.with_field(chunk, ak.values_astype(chunk[name], np.float32), name)
-
             n_events_chunk = len(chunk[truth_branches[0]])
 
             if met_mode:
-                truth_pt = chunk[truth_branches[0]]
-                truth_phi = chunk[truth_branches[2]]
+                truth_pt = ak.values_astype(chunk[truth_branches[0]] / 1000.0, np.float32)
+                truth_phi = ak.values_astype(chunk[truth_branches[2]], np.float32)
                 truth_px = truth_pt * np.cos(truth_phi)
                 truth_py = truth_pt * np.sin(truth_phi)
                 truth_met_x = -ak.sum(truth_px, axis=1)
                 truth_met_y = -ak.sum(truth_py, axis=1)
-                truth_met = ak.values_astype(np.sqrt(truth_met_x**2 + truth_met_y**2), np.float32)
-                truth_met_phi = ak.values_astype(np.arctan2(truth_met_y, truth_met_x), np.float32)
-                truth_eta = ak.values_astype(np.zeros(n_events_chunk), np.float32)
+                truth_met = np.asarray(ak.to_numpy(np.sqrt(truth_met_x**2 + truth_met_y**2)), dtype=np.float32)
+                truth_met_phi = np.asarray(ak.to_numpy(np.arctan2(truth_met_y, truth_met_x)), dtype=np.float32)
+                truth_eta = np.zeros(n_events_chunk, dtype=np.float32)
+                ones = np.ones(n_events_chunk, dtype=np.int64)
 
+                results = {}
                 for reco_prefix in reco_prefixes:
-                    reco_et = chunk[reco_branches[reco_prefix][0]]
+                    reco_et = np.asarray(ak.to_numpy(chunk[reco_branches[reco_prefix][0]] / 1000.0), dtype=np.float32)
                     if reco_metphi_mode.get(reco_prefix, False):
-                        reco_phi = ak.values_astype(-chunk[reco_branches[reco_prefix][1]], np.float32)
+                        reco_phi = np.asarray(ak.to_numpy(-chunk[reco_branches[reco_prefix][1]]), dtype=np.float32)
                     else:
-                        reco_ex = chunk[reco_branches[reco_prefix][1]]
-                        reco_ey = chunk[reco_branches[reco_prefix][2]]
-                        reco_et = ak.values_astype(np.sqrt(reco_ex**2 + reco_ey**2), np.float32)
-                        reco_phi = ak.values_astype(np.arctan2(reco_ey, reco_ex), np.float32)
+                        reco_ex = np.asarray(ak.to_numpy(chunk[reco_branches[reco_prefix][1]]), dtype=np.float32)
+                        reco_ey = np.asarray(ak.to_numpy(chunk[reco_branches[reco_prefix][2]]), dtype=np.float32)
+                        reco_et = np.asarray(np.sqrt(np.power(reco_ex, 2) + np.power(reco_ey, 2)), dtype=np.float32)
+                        reco_phi = np.asarray(np.arctan2(reco_ey, reco_ex), dtype=np.float32)
 
-                    reco_pts[reco_prefix].append(ak.singletons(reco_et))
-                    reco_etas[reco_prefix].append(ak.singletons(truth_eta))
-                    reco_phis[reco_prefix].append(ak.singletons(reco_phi))
-                    truth_pts[reco_prefix].append(ak.singletons(truth_met))
-                    truth_etas[reco_prefix].append(ak.singletons(truth_eta))
-                    truth_phis[reco_prefix].append(ak.singletons(truth_met_phi))
+                    out = {
+                        "counts": ones,
+                        "reco_pt": reco_et,
+                        "reco_eta": truth_eta,
+                        "reco_phi": reco_phi,
+                        "truth_pt": truth_met,
+                        "truth_eta": truth_eta,
+                        "truth_phi": truth_met_phi,
+                    }
                     for extra_name, extra_branch in reco_extra_branches[reco_prefix].items():
-                        reco_extras[reco_prefix][extra_name].append(ak.singletons(chunk[extra_branch]))
+                        out[f"reco_{extra_name}"] = np.asarray(ak.to_numpy(chunk[extra_branch]), dtype=np.float32)
+                    results[reco_prefix] = out
             else:
                 results = match_chunk_vectorized(
                     chunk,
@@ -625,131 +635,102 @@ def match_reco_truth(
                     extra_vars_by_prefix,
                     reco_extra_branches,
                 )
-                for reco_prefix in reco_prefixes:
-                    reco_pts[reco_prefix].append(results['reco_pt'][reco_prefix])
-                    reco_etas[reco_prefix].append(results['reco_eta'][reco_prefix])
-                    reco_phis[reco_prefix].append(results['reco_phi'][reco_prefix])
-                    truth_pts[reco_prefix].append(results['truth_pt'][reco_prefix])
-                    truth_etas[reco_prefix].append(results['truth_eta'][reco_prefix])
-                    truth_phis[reco_prefix].append(results['truth_phi'][reco_prefix])
-                    for extra_name, extra_values in results['reco_extra'][reco_prefix].items():
-                        reco_extras[reco_prefix][extra_name].append(extra_values)
 
-            event_ids.extend(range(event_offset, event_offset + n_events_chunk))
-            file_weights.extend(chunk["weight"])
-            file_rhos.extend(chunk["gFEX_rho"])
+            for reco_prefix in reco_prefixes:
+                for name, values in results[reco_prefix].items():
+                    acc[reco_prefix][name].append(values)
+
+            event_ids.append(np.arange(event_offset, event_offset + n_events_chunk, dtype=np.int64))
+            file_weights.append(np.asarray(ak.to_numpy(chunk["weight"]), dtype=np.float64))
+            event_rhos.append(
+                np.asarray(
+                    ak.to_numpy(ak.fill_none(ak.pad_none(chunk["gFEX_rho"], 3, axis=1, clip=True), 0.)),
+                    dtype=np.float64,
+                )
+            )
             event_offset += n_events_chunk
 
-            del chunk
+            del chunk, results
             gc.collect()
 
+        file_weights = np.concatenate(file_weights) if file_weights else np.zeros(0, dtype=np.float64)
         total_weight = np.sum(file_weights)
-        file_weights = [f*weight/total_weight for f in file_weights]
-        event_weights.extend(file_weights)
-        event_rhos.extend(file_rhos)
+        event_weights.append(file_weights * weight / total_weight)
 
     for i, f in enumerate(files):
         process_file(f, weights[i])
 
-    return {
-        reco_prefix: ak.zip(
-            {
-                "event": ak.Array(event_ids),
-                "weight": ak.Array(event_weights),
-                "rho": ak.fill_none(ak.pad_none(event_rhos, 3, axis=-1, clip=True), 0., axis=-1),
-                "reco_pt": ak.concatenate(reco_pts[reco_prefix]),
-                "reco_eta": ak.concatenate(reco_etas[reco_prefix]),
-                "reco_phi": ak.concatenate(reco_phis[reco_prefix]),
-                "truth_pt": ak.concatenate(truth_pts[reco_prefix]),
-                "truth_eta": ak.concatenate(truth_etas[reco_prefix]),
-                "truth_phi": ak.concatenate(truth_phis[reco_prefix]),
-                **{
-                    f"reco_{extra_name}": ak.concatenate(reco_extras[reco_prefix][extra_name])
-                    for extra_name in extra_vars_by_prefix[reco_prefix]
-                },
-            },
-            depth_limit=1,
-        )
-        for reco_prefix in reco_prefixes
-    }
+    event_ids = np.concatenate(event_ids)
+    event_weights = np.concatenate(event_weights)
+    event_rhos = np.concatenate(event_rhos, axis=0)
+
+    output = {}
+    for reco_prefix in reco_prefixes:
+        counts = np.concatenate(acc[reco_prefix].pop("counts"))
+        fields = {
+            "event": ak.Array(event_ids),
+            "weight": ak.Array(event_weights),
+            "rho": ak.Array(event_rhos),
+        }
+        for name in fields_by_prefix[reco_prefix]:
+            # concatenate one field at a time and drop the chunk list right away to limit peak memory
+            fields[name] = ak.unflatten(np.concatenate(acc[reco_prefix].pop(name)), counts)
+        output[reco_prefix] = ak.zip(fields, depth_limit=1)
+    return output
+
+
+def kth_sort_order(arr, sorton):
+    """
+    Per-event descending argsort of ``arr[sorton]`` (NaN / missing sort as 0).
+    Compute this once per (array, sort field) and reuse it for several k / fields.
+    """
+    sort_key = ak.nan_to_num(ak.fill_none(arr[sorton], 0.0), nan=0.0)
+    return ak.argsort(sort_key, axis=1, ascending=False)
+
+
+def kth_from_order(arr, field, order, k):
+    """
+    k-th (1-indexed) value of ``arr[field]`` following a precomputed per-event ``order``.
+    Events with fewer than k entries (or NaN values) give 0. Returns a float64 numpy array.
+    """
+    # only gather the single k-th index per event instead of reordering the whole field
+    kth = ak.firsts(arr[field][order[:, k-1:k]], axis=1)
+    return np.nan_to_num(np.asarray(ak.to_numpy(ak.fill_none(kth, 0.0)), dtype=np.float64), nan=0.)
 
 
 def select_kth(arr, field, sorton, k):
     """
-    Memory-optimized single-field version with explicit cleanup.
+    k-th (1-indexed) value of ``field`` when the event is sorted by descending ``sorton``.
     """
-    # Convert NaN in the sort key to 0
-    sort_key = ak.where(
-        ak.is_none(arr[sorton]) | np.isnan(arr[sorton]),
-        0,
-        arr[sorton]
-    )
-    
-    # argsort using the cleaned sort key
-    order = ak.argsort(sort_key, axis=1, ascending=False)
-    del sort_key  # Immediate cleanup
-    
-    # reorder the variable of interest
-    sorted_var = arr[field][order]
-    del order  # Don't need this anymore
-    
-    # get kth element (slice k-1:k so firsts works)
-    kth = ak.firsts(sorted_var[:, k-1:k], axis=1)
-    del sorted_var  # Cleanup
-    
-    # fill missing with 0 and convert to numpy
-    result = np.nan_to_num(ak.to_numpy(ak.fill_none(kth, 0)), nan=0.)
-    del kth  # Cleanup before return
-    
-    return result
+    return kth_from_order(arr, field, kth_sort_order(arr, sorton), k)
+
 
 def select_kths(arr, fields, sorton, k):
     """
-    Memory-optimized version that extracts multiple fields in one pass.
-    
-    Parameters
-    ----------
-    arr : awkward array
-        Input array with nested structure
-    fields : list of str
-        Field names to extract (e.g., ["reco_pt", "reco_eta", "truth_pt"])
-    sorton : str
-        Field name to sort on
-    k : int
-        Which element to select (1-indexed)
-    
+    Same as :func:`select_kth` for several fields with a single sort.
+
     Returns
     -------
-    dict : {field_name: numpy array}
-        Dictionary mapping field names to their kth values
+    list : numpy arrays, one per field
     """
-    # Convert NaN in the sort key to 0
-    sort_key = ak.where(
-        ak.is_none(arr[sorton]) | np.isnan(arr[sorton]),
-        0,
-        arr[sorton]
-    )
-    
-    # Get sort order ONCE
-    order = ak.argsort(sort_key, axis=1, ascending=False)
-    del sort_key  # Immediate cleanup
-    
-    # Extract all requested fields using the same sort order
-    results = []
-    for field in fields:
-        sorted_var = arr[field][order]
-        kth = ak.firsts(sorted_var[:, k-1:k], axis=1)
-        results.append(
-            np.nan_to_num(
-                ak.to_numpy(ak.fill_none(kth, 0)), 
-                nan=0.
-            )
-        )
-        # Clean up intermediates
-        del sorted_var, kth
-    
-    del order
-    return results
+    order = kth_sort_order(arr, sorton)
+    return [kth_from_order(arr, field, order, k) for field in fields]
+
+
+def _resolve_selector(selector, pairs, nobj):
+    """Accept a selector callable ``f(pairs, nobj)`` or a precomputed boolean event mask."""
+    if selector is None:
+        return np.ones(len(pairs), dtype=bool)
+    if callable(selector):
+        return np.asarray(selector(pairs, nobj), dtype=bool)
+    return np.asarray(selector, dtype=bool)
+
+
+def _event_weights(pairs, event_weights=None):
+    if event_weights is None:
+        return np.asarray(ak.to_numpy(pairs["weight"]), dtype=np.float64)
+    return np.asarray(event_weights, dtype=np.float64)
+
 
 def weighted_percentile(data, q, weights):
     """
@@ -821,7 +802,8 @@ def weighted_percentile(data, q, weights):
         return np.array(vals.item())
     return vals
 
-def compute_pt_threshold(bkg_pairs, target_eff, nobj, correctors=None, selector=None):
+def compute_pt_threshold(bkg_pairs, target_eff, nobj, correctors=None, selector=None,
+                         reco_pt_kth=None, event_weights=None):
     """
     Compute a reco-pt threshold that yields the requested background efficiency.
 
@@ -830,10 +812,15 @@ def compute_pt_threshold(bkg_pairs, target_eff, nobj, correctors=None, selector=
 
     Parameters
     ----------
-    bkg_pairs : np.ndarray
-        Array shape (N, >=1) where column 0 is reco_pt (as in the pipeline).
+    bkg_pairs : awkward array of matched pairs (see match_reco_truth).
     target_eff : float
         Target background efficiency in (0,1). Example: 0.01 for 1%.
+    selector : callable or bool array
+        Applied to the background before the threshold scan (rate selector).
+    reco_pt_kth : np.ndarray, optional
+        Precomputed nobj-th leading reco pt per event (from select_kth) to avoid re-sorting.
+    event_weights : np.ndarray, optional
+        Precomputed per-event weights.
 
     Returns
     -------
@@ -847,17 +834,15 @@ def compute_pt_threshold(bkg_pairs, target_eff, nobj, correctors=None, selector=
 
     if bkg_pairs is None or len(bkg_pairs) == 0:
         return np.inf, 0.0
-    
+
     if correctors is not None:
         for corrector in correctors:
             if callable(corrector):
                 corrector(bkg_pairs)
-                
-    reco_pt,reco_eta = select_kths(bkg_pairs, ["reco_pt","reco_eta"], "reco_pt", nobj)
-    w = ak.to_numpy(bkg_pairs["weight"])
-    if selector is None:
-        selector = null_selector
-    sel = selector(bkg_pairs, nobj)
+
+    reco_pt = select_kth(bkg_pairs, "reco_pt", "reco_pt", nobj) if reco_pt_kth is None else np.asarray(reco_pt_kth)
+    w = _event_weights(bkg_pairs, event_weights)
+    sel = _resolve_selector(selector, bkg_pairs, nobj)
     reco_pt_selected = reco_pt[sel]
     w_selected = w[sel]
 
@@ -867,9 +852,10 @@ def compute_pt_threshold(bkg_pairs, target_eff, nobj, correctors=None, selector=
     # We want threshold T so that fraction with (reco_pt > T and selector) == target_eff.
     # That means T is the (1-target_eff) quantile of the reco_pt distribution.
     q = 100.0 * (1.0 - target_eff * np.sum(w) / np.sum(w_selected))
+    if q < 0.0:
+        print(f"Warning: target efficiency {target_eff:.3g} not reachable with selector (max {np.sum(w_selected)/np.sum(w):.3g}); using lowest threshold")
+        q = 0.0
 
-    # Use numpy.percentile which handles small arrays gracefully.
-    #threshold = np.percentile(reco_pt, q, weights=w, method="inverted_cdf")
     threshold = weighted_percentile(reco_pt_selected, q, w_selected)
 
     # Compute actual achieved efficiency (strictly greater than threshold)
@@ -878,7 +864,8 @@ def compute_pt_threshold(bkg_pairs, target_eff, nobj, correctors=None, selector=
 
     return float(threshold), float(actual_eff)
 
-def compute_rate(bkg_pairs, threshold, nobj, correctors=None, full_rate=31_000., selector=None):
+def compute_rate(bkg_pairs, threshold, nobj, correctors=None, full_rate=31_000., selector=None,
+                 reco_pt_kth=None, event_weights=None):
     """
     Compute a rate from the given threshold and nobj.
 
@@ -886,34 +873,32 @@ def compute_rate(bkg_pairs, threshold, nobj, correctors=None, full_rate=31_000.,
 
     Parameters
     ----------
-    bkg_pairs : np.ndarray
-        Array shape (N, >=1) where column 0 is reco_pt (as in the pipeline).
+    bkg_pairs : awkward array of matched pairs (see match_reco_truth).
     threshold : float
-        Target background efficiency in (0,1). Example: 0.01 for 1%.
+        Reco-pt threshold (>= passes).
+    reco_pt_kth, event_weights : optional precomputed per-event arrays (see compute_pt_threshold).
 
     Returns
     -------
     rate : float
         Rate in kHz. If bkg_pairs is empty, returns np.inf.
     actual_eff : float
-        Actual fraction of background events with reco_pt > threshold.
+        Actual fraction of background events with reco_pt >= threshold.
     """
     if threshold < 0.:
         raise ValueError("threshold must be non-negative.")
 
     if bkg_pairs is None or len(bkg_pairs) == 0:
         return np.inf, 0.0
-    
+
     if correctors is not None:
         for corrector in correctors:
             if callable(corrector):
                 corrector(bkg_pairs)
-                
-    reco_pt,reco_eta = select_kths(bkg_pairs, ["reco_pt","reco_eta"], "reco_pt", nobj)
-    w = ak.to_numpy(bkg_pairs["weight"])
-    if selector is None:
-        selector = null_selector
-    sel = selector(bkg_pairs, nobj)
+
+    reco_pt = select_kth(bkg_pairs, "reco_pt", "reco_pt", nobj) if reco_pt_kth is None else np.asarray(reco_pt_kth)
+    w = _event_weights(bkg_pairs, event_weights)
+    sel = _resolve_selector(selector, bkg_pairs, nobj)
 
     # Compute actual achieved efficiency
     actual_eff = np.sum(w[(reco_pt >= threshold) & sel]) / np.sum(w)
@@ -922,24 +907,10 @@ def compute_rate(bkg_pairs, threshold, nobj, correctors=None, full_rate=31_000.,
 
 from scipy.stats import beta
 
-def teff(num, den, weights=None, alpha=0.682689492137086):
-    if weights is not None: #not fully implemented
-        w = np.asarray(weights)
-        num = num * w
-        den = den * w
-        
-    eff = np.where(den == 0, 0.0, num / den)
-    low = np.where(
-        num == 0, 
-        0,
-        beta.ppf((1 - alpha) / 2, num, den - num + 1)
-    )
-    high = np.where(
-        num == den,
-        1,
-        beta.ppf(1 - (1 - alpha) / 2, num + 1, den - num)
-    )
-    return eff, eff - low, high - eff
+def _safe_ratio(num, den):
+    out = np.zeros(np.broadcast(num, den).shape, dtype=float)
+    np.divide(num, den, out=out, where=den > 0.)
+    return out
 
 def teff(num, den, sumw2_num=None, sumw2_den=None, alpha=0.682689492137086):
     """
@@ -957,7 +928,7 @@ def teff(num, den, sumw2_num=None, sumw2_den=None, alpha=0.682689492137086):
     num = np.asarray(num, dtype=float)
     den = np.asarray(den, dtype=float)
 
-    eff = np.where(den > 0., num / den, 0.0)
+    eff = _safe_ratio(num, den)
     eff = np.clip(eff, 0.0, 1.0)
 
     # Unweighted case: integer-count Clopper-Pearson
@@ -975,7 +946,7 @@ def teff(num, den, sumw2_num=None, sumw2_den=None, alpha=0.682689492137086):
         low = np.clip(low, 0.0, 1.0)
         high = np.clip(high, 0.0, 1.0)
         return eff, eff - low, high - eff
-    
+
     else:
 
         # Weighted case: use effective counts
@@ -983,7 +954,7 @@ def teff(num, den, sumw2_num=None, sumw2_den=None, alpha=0.682689492137086):
         sumw2_den = np.asarray(sumw2_den, dtype=float)
 
         # Neff = (sumw)^2 / sumw2 (guard against zeros)
-        neff = np.where(sumw2_den > 0., (den * den) / sumw2_den, 0.0)
+        neff = _safe_ratio(den * den, sumw2_den)
         neff = np.maximum(neff, 0.0)
 
         keff = eff * neff
@@ -1009,6 +980,13 @@ def teff(num, den, sumw2_num=None, sumw2_den=None, alpha=0.682689492137086):
         high = np.clip(high, 0.0, 1.0)
         return eff, eff - low, high - eff
 
+def _hist_with_flow(values, bins, weights_arr=None):
+    """Histogram with under/overflow absorbed in first/last bins."""
+    nbins = len(bins) - 1
+    indices = np.searchsorted(bins, values, side="right") - 1
+    indices = np.clip(indices, 0, nbins - 1)
+    return np.bincount(indices, weights=weights_arr, minlength=nbins)
+
 def compute_signal_efficiency(
     sig_pairs,
     threshold,
@@ -1020,42 +998,45 @@ def compute_signal_efficiency(
     weights=False,
     inclusive=True,
     correctors=None,
+    reco_pt_kth=None,
+    event_weights=None,
 ):
     """
-    Compute signal efficiency vs truth-pt for a given reco-pt threshold.
+    Compute signal efficiency vs a turn-on variable for a given reco-pt threshold.
 
     Parameters
     ----------
-    sig_pairs : np.ndarray
-        Array-like with shape (N, >=2) where:
-          column 0 = reco_pt
-          column 1 = truth_pt
+    sig_pairs : awkward array of matched pairs (see match_reco_truth).
     threshold : float
-        Reco-pt threshold. An event "passes" if reco_pt > threshold by default.
-        Use inclusive=True to treat reco_pt >= threshold as passing.
+        Reco-pt threshold. An event "passes" if reco_pt >= threshold (inclusive=True)
+        or reco_pt > threshold (inclusive=False).
     turnon_bins : array_like
         Bin edges for the turn-on variable (e.g. np.linspace(0,2000,41)).
-    selector : callable
+    selector : callable or bool array
         Selection applied to both numerator and denominator.
-    numerator_selector : callable
+    numerator_selector : callable or bool array
         Additional selection applied only to the numerator together with the pt threshold.
+    turnon_values : np.ndarray, optional
+        Per-event turn-on variable (default: nobj-th leading truth pt). Events with a
+        non-finite value (e.g. no dijet pair) are excluded from numerator and denominator.
     weights : bool
         Use weights.
     inclusive : bool
-        If True use reco_pt >= threshold (default False uses > threshold).
+        If True use reco_pt >= threshold (default), else > threshold.
+    reco_pt_kth, event_weights : optional precomputed per-event arrays.
 
     Returns
     -------
     centers : np.ndarray
-        Bin centers for truth-pt bins.
+        Bin centers for turn-on bins.
     efficiency : np.ndarray
-        Efficiency in each truth-pt bin (length = len(truth_pt_bins)-1).
+        Efficiency in each bin (length = len(turnon_bins)-1).
     total_counts : np.ndarray
-        Total counts (or sum of weights) in each truth-pt bin.
+        Total counts (or sum of weights) in each bin.
     passed_counts : np.ndarray
         Counts (or sum of weights) in each bin that pass the threshold.
     err : np.ndarray
-        Approximate 1-sigma uncertainty on the efficiency in each bin.
+        (2, nbins) lower/upper 1-sigma uncertainty on the efficiency in each bin.
     """
     if sig_pairs is None or len(sig_pairs) == 0:
         nbins = len(turnon_bins) - 1
@@ -1071,36 +1052,23 @@ def compute_signal_efficiency(
         for corrector in correctors:
             if callable(corrector):
                 corrector(sig_pairs)
-                
 
-    reco_pt, reco_eta = select_kths(sig_pairs, ["reco_pt","reco_eta"], "reco_pt", nobj)
+    reco_pt = select_kth(sig_pairs, "reco_pt", "reco_pt", nobj) if reco_pt_kth is None else np.asarray(reco_pt_kth)
     if turnon_values is None:
         turnon_values = select_kth(sig_pairs, "truth_pt", "truth_pt", nobj)
+    turnon_values = np.asarray(ak.to_numpy(turnon_values) if isinstance(turnon_values, ak.Array) else turnon_values, dtype=float)
 
-
-    if numerator_selector is None:
-        numerator_selector = null_selector
-
-    denominator_sel = selector(sig_pairs, nobj)
-    numerator_sel = numerator_selector(sig_pairs, nobj)
+    denominator_sel = _resolve_selector(selector, sig_pairs, nobj) & np.isfinite(turnon_values)
+    numerator_sel = _resolve_selector(numerator_selector, sig_pairs, nobj)
 
     reco_pt = reco_pt[denominator_sel]
-    reco_eta = reco_eta[denominator_sel]
     turnon_values = turnon_values[denominator_sel]
     numerator_sel = numerator_sel[denominator_sel]
-    w = ak.to_numpy(sig_pairs["weight"])[denominator_sel]
 
     if inclusive:
         passed_mask = (reco_pt >= threshold) & numerator_sel
     else:
         passed_mask = (reco_pt > threshold) & numerator_sel
-
-    def _hist_with_flow(values, bins, weights_arr=None):
-        """Histogram with under/overflow absorbed in first/last bins."""
-        nbins = len(bins) - 1
-        indices = np.searchsorted(bins, values, side="right") - 1
-        indices = np.clip(indices, 0, nbins - 1)
-        return np.bincount(indices, weights=weights_arr, minlength=nbins)
 
     if not weights:
         # Unweighted histograms (with first/last bins as under/overflow)
@@ -1111,6 +1079,7 @@ def compute_signal_efficiency(
 
     else:
         # Weighted
+        w = _event_weights(sig_pairs, event_weights)[denominator_sel]
         w_pass = w[passed_mask]
 
         # sum of weights
@@ -1145,31 +1114,34 @@ def compute_full_efficiency(
     numerator_selector=None,
     weights=False,
     correctors=None,
+    reco_pt_kth=None,
+    event_weights=None,
 ):
     """
-    Compute efficiency vs reco-pt threshold.
+    Compute efficiency vs reco-pt threshold (fraction of selected events whose
+    nobj-th leading reco pt is >= each threshold in ``pt_bins``).
 
     Parameters
     ----------
-    pairs : np.ndarray
-        Array-like with shape (N, >=2) where:
-          column 0 = reco_pt
-          column 1 = truth_pt
+    pairs : awkward array of matched pairs (see match_reco_truth).
     pt_bins : array_like
-        Bin edges for pt (e.g. np.linspace(0,2000,41)).
-    numerator_selector : callable
+        Thresholds to scan.
+    selector : callable or bool array
+        Selection applied to numerator and denominator.
+    numerator_selector : callable or bool array
         Additional selection applied only to the numerator.
     weights : bool
         Use weights.
+    reco_pt_kth, event_weights : optional precomputed per-event arrays.
 
     Returns
     -------
     efficiency : np.ndarray
         Efficiency for each pt threshold (length = len(pt_bins)).
     err : np.ndarray
-        Approximate 1-sigma uncertainty on the efficiency in each bin.
+        (2, len(pt_bins)) lower/upper 1-sigma uncertainty on the efficiency.
     """
-    
+
     if pairs is None or len(pairs) == 0:
         nbins = len(pt_bins)
         return (
@@ -1181,56 +1153,50 @@ def compute_full_efficiency(
         for corrector in correctors:
             if callable(corrector):
                 corrector(pairs)
-                
-    reco_pt, reco_eta = select_kths(pairs, ["reco_pt","reco_eta"], "reco_pt", nobj)
-    truth_pt = select_kth(pairs, "truth_pt", "truth_pt", nobj)
 
-    if numerator_selector is None:
-        numerator_selector = null_selector
+    reco_pt = select_kth(pairs, "reco_pt", "reco_pt", nobj) if reco_pt_kth is None else np.asarray(reco_pt_kth)
 
-    denominator_sel = selector(pairs, nobj)
-    numerator_sel = numerator_selector(pairs, nobj)
-
+    denominator_sel = _resolve_selector(selector, pairs, nobj)
+    numerator_sel = _resolve_selector(numerator_selector, pairs, nobj)[denominator_sel]
     reco_pt = reco_pt[denominator_sel]
-    reco_eta = reco_eta[denominator_sel]
-    truth_pt = truth_pt[denominator_sel]
-    numerator_sel = numerator_sel[denominator_sel]
-    w = ak.to_numpy(pairs["weight"])[denominator_sel]
 
     thresholds = np.asarray(pt_bins, dtype=float)
 
+    # Sort the numerator candidates once; "count of reco_pt >= thr" is then a searchsorted lookup.
+    cand_pt = reco_pt[numerator_sel]
+    order = np.argsort(cand_pt, kind="stable")
+    cand_sorted = cand_pt[order]
+    first_ge = np.searchsorted(cand_sorted, thresholds, side="left")
+
     if not weights:
         total_counts = np.full(len(thresholds), reco_pt.shape[0], dtype=float)
-        passed_counts = np.array([
-            np.count_nonzero((reco_pt >= thr) & numerator_sel)
-            for thr in thresholds
-        ], dtype=float)
+        passed_counts = (cand_sorted.shape[0] - first_ge).astype(float)
 
         efficiency, errlo, errhi = teff(passed_counts, total_counts)
 
     else:
-        # Weighted histograms
+        # Weighted: suffix sums of (sorted) weights give sum of weights above each threshold
+        w = _event_weights(pairs, event_weights)[denominator_sel]
         if w.shape[0] != reco_pt.shape[0]:
             raise ValueError("weights must have same length as pairs")
-            
+
         w2 = w * w
+        w_sorted = w[numerator_sel][order]
+        w2_sorted = w2[numerator_sel][order]
+        suffix_w = np.concatenate([np.cumsum(w_sorted[::-1])[::-1], [0.0]])
+        suffix_w2 = np.concatenate([np.cumsum(w2_sorted[::-1])[::-1], [0.0]])
+
         total_w = np.full(len(thresholds), np.sum(w), dtype=float)
         total_w2 = np.full(len(thresholds), np.sum(w2), dtype=float)
-        passed_w = np.array([
-            np.sum(w[(reco_pt >= thr) & numerator_sel])
-            for thr in thresholds
-        ], dtype=float)
-        passed_w2 = np.array([
-            np.sum(w2[(reco_pt >= thr) & numerator_sel])
-            for thr in thresholds
-        ], dtype=float)
+        passed_w = suffix_w[first_ge]
+        passed_w2 = suffix_w2[first_ge]
 
         efficiency, errlo, errhi = teff(
             passed_w,
             total_w,
             sumw2_num=passed_w2,
             sumw2_den=total_w2,
-        )   
+        )
 
     return efficiency, np.stack([errlo, errhi])
 
@@ -1334,7 +1300,7 @@ def compute_response(pairs, pt_bins, eta_bins, min_pt=None, respcorrs=None, debu
             
             # 2D Hist: Truth pT vs Response
             plt.hist2d(truth_pt[etamask], response[etamask], 
-                       bins=[pt_bins, np.linspace(0., np.maximum(np.max(y_centers[np.isfinite(y_centers)]) if np.sum(np.isfinite(y_centers))>0 else 3.,3.), 100)], cmap="viridis")
+                       bins=[pt_bins, np.linspace(0., np.maximum(np.max(y_centers[np.isfinite(y_centers)]) if np.sum(np.isfinite(y_centers))>0 else 3.,3.), 100)], cmap="viridis", rasterized=True)
             
             # Overlay the response
             plt.errorbar(x_centers, response_centers[bin_slice], 
@@ -1355,7 +1321,7 @@ def compute_response(pairs, pt_bins, eta_bins, min_pt=None, respcorrs=None, debu
             # ------
             # 2D Hist: Reco pT vs Response
             plt.hist2d(reco_pt[etamask], response[etamask], 
-                       bins=[pt_bins, np.linspace(0., np.maximum(np.max(y_centers[np.isfinite(y_centers)]) if np.sum(np.isfinite(y_centers))>0 else 3.,3.), 100)], cmap="viridis")
+                       bins=[pt_bins, np.linspace(0., np.maximum(np.max(y_centers[np.isfinite(y_centers)]) if np.sum(np.isfinite(y_centers))>0 else 3.,3.), 100)], cmap="viridis", rasterized=True)
             
             # Overlay the response
             bin_slice = slice(ie * n_pt, (ie + 1) * n_pt)
@@ -1375,7 +1341,8 @@ def compute_response(pairs, pt_bins, eta_bins, min_pt=None, respcorrs=None, debu
             plt.savefig(plot_name, bbox_inches='tight')
             plt.close()
             
-        plt.hist(response-1., bins=np.linspace(-1., np.max(response[etamask])-1., 91), color='r', histtype='step')
+        if response.size > 0:
+            plt.hist(response-1., bins=np.linspace(-1., np.max(response)-1., 91), color='r', histtype='step')
         plt.axvline(0., color='k', linestyle='--')
         plt.xlabel(r"Reco - Truth / Truth")
         plt.ylabel(r"Number of objects")
@@ -1490,7 +1457,7 @@ class AreaSubtractor:
             
             if self.debug:
                 ax.clear()  # Clear axes, not figure
-                ax.hist2d(rho_bin, pt_diff, bins=50, cmap="viridis")
+                ax.hist2d(rho_bin, pt_diff, bins=50, cmap="viridis", rasterized=True)
                 ax.set_xlabel(r"$\rho$")
                 ax.set_ylabel(r"$\Delta p_{T}$ (Reco-Truth)")
                 rho_min = np.min(rho_bin)
@@ -1552,10 +1519,10 @@ class AreaSubtractor:
         #rho_per_obj = ak.flatten(rho_broadcast)
         #del rho_broadcast  # Explicit cleanup
         
-        # Convert to numpy for correction
-        pt_np = ak.to_numpy(pt_flat)
-        eta_np = ak.to_numpy(eta_flat)
-        rho_np = ak.to_numpy(rho_per_obj)
+        # Convert to numpy for correction (computed in float64, stored back as float32)
+        pt_np = np.asarray(ak.to_numpy(pt_flat), dtype=np.float64)
+        eta_np = np.asarray(ak.to_numpy(eta_flat), dtype=np.float64)
+        rho_np = np.asarray(ak.to_numpy(rho_per_obj), dtype=np.float64)
         
         # Clean up awkward intermediates
         del pt_flat, eta_flat, rho_per_obj
@@ -1584,14 +1551,14 @@ class AreaSubtractor:
         del pt_np, eta_np, rho_np, rho_per_event
         
         # Unflatten back to original structure
-        corrected_pt = ak.unflatten(corrected_pt_flat, ak.num(reco_pt))
+        corrected_pt = ak.unflatten(corrected_pt_flat.astype(np.float32), ak.num(reco_pt))
         del corrected_pt_flat  # Clean up before reassignment
         
         # Modify pairs in-place
         pairs["reco_pt"] = corrected_pt
 
 
-from scipy.interpolate import interp1d, make_smoothing_spline
+from scipy.interpolate import make_smoothing_spline
 
 def identity_response(x): 
     return np.ones_like(x)
@@ -1680,8 +1647,9 @@ class ResponseInterpolator:
         reco_pt = pairs["reco_pt"]
         reco_eta = pairs["reco_eta"]
         
-        pt = ak.to_numpy(ak.flatten(reco_pt))
-        eta = ak.to_numpy(ak.flatten(reco_eta))
+        # evaluate the correction in float64 (storage is float32)
+        pt = np.asarray(ak.to_numpy(ak.flatten(reco_pt)), dtype=np.float64)
+        eta = np.asarray(ak.to_numpy(ak.flatten(reco_eta)), dtype=np.float64)
         
         out_resp_flat = np.ones_like(pt)
         
@@ -1699,31 +1667,19 @@ class ResponseInterpolator:
                 out_resp_flat[mask] = 1.0
                 continue
 
-            log_pt = np.log(np.array(pt[mask]))
+            log_pt = np.log(pt[mask])
             x0, x1 = self.interp_ranges[ie]
             y0, y1 = self.endpoint_values[ie]
             log_pt_eval = np.clip(log_pt, x0, x1)
             y_eval = spline(log_pt_eval)
             out_resp_flat[mask] = np.where(log_pt < x0, y0, np.where(log_pt > x1, y1, y_eval))
         
-        # Clean up numpy intermediates
-        del pt, eta, eta_indices
-        
-        # Unflatten back to original structure
-        out_resp = ak.unflatten(out_resp_flat, ak.num(reco_pt))
-        del out_resp_flat  # Clean up before division
+        # Corrected pt, stored back as float32 to keep the pairs memory footprint
+        corrected = (pt / out_resp_flat).astype(np.float32)
+        del out_resp_flat, pt, eta, eta_indices
         
         # Modify pairs in-place
-        pairs["reco_pt"] = reco_pt / out_resp
-        del out_resp  # Clean up after modification
-
-def apply_dict(func, d, opts):
-    outs = [{} for _ in d]
-    for k, v in d.items():
-        r = func(v, **opts)
-        for i,x in enumerate(r):
-            outs[i] = x
-    return outs
+        pairs["reco_pt"] = ak.unflatten(corrected, ak.num(reco_pt))
 
 import pickle
 
@@ -1734,6 +1690,69 @@ def save_corrs(corr_obj, filename):
 def load_corrs(filename):
     with open(filename, "rb") as f:
         return pickle.load(f)
+
+def _debug_kinematic_plots(config, sig_pairs, bkg_pairs, nobj, prefix, tag):
+    """Debug histograms of the nobj-th leading reco/truth pt/eta for every collection."""
+    for var in ["reco_pt","reco_eta","truth_pt","truth_eta"]:
+        figb, axb = plt.subplots()
+        figs, axs = plt.subplots()
+        fig, ax = plt.subplots()
+        for r,reco_prefix in enumerate(config.reco_prefixes):
+            if r>0 and "truth" in var:
+                continue
+            if 'pt' in var:
+                bins = config.truth_pt_bins
+            else:
+                bins = config.truth_eta_bins
+            bkgv = select_kth(bkg_pairs[reco_prefix], var, "reco_pt" if "reco" in var else "truth_pt", nobj)
+            bkgw = bkg_pairs[reco_prefix]["weight"]
+            sigv = select_kth(sig_pairs[reco_prefix], var, "reco_pt" if "reco" in var else "truth_pt", nobj)
+            axb.hist(bkgv,bins=bins,histtype='step',label='Truth' if 'truth' in var else reco_prefix,weights=bkgw)
+            axs.hist(sigv,bins=bins,histtype='step',label='Truth' if 'truth' in var else reco_prefix)
+            ax.hist(bkgv,bins=bins,histtype='step',label='bkg : '+('Truth' if 'truth' in var else reco_prefix),weights=bkgw,density=True)
+            ax.hist(sigv,bins=bins,histtype='step',label='sig : '+('Truth' if 'truth' in var else reco_prefix),density=True)
+        place_legend_above(axb)
+        place_legend_above(axs)
+        place_legend_above(ax)
+        if 'pt' in var:
+            axb.set_yscale('log')
+            axs.set_yscale('log')
+            ax.set_yscale('log')
+        figb.savefig(build_debug_plot_path(config.name, 'debug_bkg_%s%s%s_%s_%i.pdf'%(prefix,var,tag,config.name,nobj)), bbox_inches='tight')
+        figs.savefig(build_debug_plot_path(config.name, 'debug_sig_%s%s%s_%s_%i.pdf'%(prefix,var,tag,config.name,nobj)), bbox_inches='tight')
+        fig.savefig(build_debug_plot_path(config.name, 'debug_%s%s%s_%s_%i.pdf'%(prefix,var,tag,config.name,nobj)), bbox_inches='tight')
+        plt.close(figb)
+        plt.close(figs)
+        plt.close(fig)
+
+
+def _debug_multiplicity_plots(config, sig_pairs, bkg_pairs, prefix, tag):
+    """Debug histograms of the number of reco/truth objects above 50 GeV for every collection."""
+    for var in ["num_truth","num_reco"]:
+        figb, axb = plt.subplots()
+        figs, axs = plt.subplots()
+        fig, ax = plt.subplots()
+        bins = np.arange(-0.5,11.5,1.)
+        for r,reco_prefix in enumerate(config.reco_prefixes):
+            if r>0 and "truth" in var:
+                continue
+            bkgv = ak.sum(bkg_pairs[reco_prefix]['truth_pt' if 'truth' in var else 'reco_pt']>50.,axis=1)
+            bkgw = bkg_pairs[reco_prefix]["weight"]
+            sigv = ak.sum(sig_pairs[reco_prefix]['truth_pt' if 'truth' in var else 'reco_pt']>50.,axis=1)
+            axb.hist(bkgv,bins=bins,histtype='step',label='Truth' if 'truth' in var else reco_prefix,weights=bkgw)
+            axs.hist(sigv,bins=bins,histtype='step',label='Truth' if 'truth' in var else reco_prefix)
+            ax.hist(bkgv,bins=bins,histtype='step',label='bkg : '+('Truth' if 'truth' in var else reco_prefix),weights=bkgw,density=True)
+            ax.hist(sigv,bins=bins,histtype='step',label='sig : '+('Truth' if 'truth' in var else reco_prefix),density=True)
+        place_legend_above(axb)
+        place_legend_above(axs)
+        place_legend_above(ax)
+        figb.savefig(build_debug_plot_path(config.name, 'debug_bkg_%s%s%s_%s.pdf'%(prefix,var,tag,config.name)), bbox_inches='tight')
+        figs.savefig(build_debug_plot_path(config.name, 'debug_sig_%s%s%s_%s.pdf'%(prefix,var,tag,config.name)), bbox_inches='tight')
+        fig.savefig(build_debug_plot_path(config.name, 'debug_%s%s%s_%s.pdf'%(prefix,var,tag,config.name)), bbox_inches='tight')
+        plt.close(figb)
+        plt.close(figs)
+        plt.close(fig)
+
 
 def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
     sig_pairs = match_reco_truth(
@@ -1782,292 +1801,208 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
         print(bkg_pairs)
 
     results = []
-    
-    
-        
-    for n in range(len(config.nobjs)):
-        if debug: 
-            for var in ["reco_pt","reco_eta","truth_pt","truth_eta"]:
-                figb, axb = plt.subplots()
-                figs, axs = plt.subplots()
-                fig, ax = plt.subplots()
-                for r,reco_prefix in enumerate(config.reco_prefixes):
-                    if r>0 and "truth" in var:
-                        continue
-                    if 'pt' in var:
-                        bins = config.truth_pt_bins
-                    else:
-                        bins = config.truth_eta_bins
-                    bkgv = select_kth(bkg_pairs[reco_prefix], var, "reco_pt" if "reco" in var else "truth_pt", config.nobjs[n])
-                    bkgw = bkg_pairs[reco_prefix]["weight"]
-                    axb.hist(bkgv,bins=bins,histtype='step',label='Truth' if 'truth' in var else reco_prefix,weights=bkgw)
-                    sigv = select_kth(sig_pairs[reco_prefix], var, "reco_pt" if "reco" in var else "truth_pt", config.nobjs[n])
-                    axs.hist(sigv,bins=bins,histtype='step',label='Truth' if 'truth' in var else reco_prefix)
-                    ax.hist(bkgv,bins=bins,histtype='step',label='bkg : '+('Truth' if 'truth' in var else reco_prefix),weights=bkgw,density=True)
-                    ax.hist(sigv,bins=bins,histtype='step',label='sig : '+('Truth' if 'truth' in var else reco_prefix),density=True)
-                place_legend_above(axb)
-                place_legend_above(axs)
-                place_legend_above(ax)
-                if 'pt' in var:
-                    axb.set_yscale('log')
-                    axs.set_yscale('log')
-                    ax.set_yscale('log')
-                figb.savefig(build_debug_plot_path(config.name, 'debug_bkg_%s%s_nocorr_%s_%i.pdf'%(prefix,var,config.name,config.nobjs[n])), bbox_inches='tight')
-                figs.savefig(build_debug_plot_path(config.name, 'debug_sig_%s%s_nocorr_%s_%i.pdf'%(prefix,var,config.name,config.nobjs[n])), bbox_inches='tight')
-                fig.savefig(build_debug_plot_path(config.name, 'debug_%s%s_nocorr_%s_%i.pdf'%(prefix,var,config.name,config.nobjs[n])), bbox_inches='tight')
-                plt.close(figb)
-                plt.close(figs)
-                plt.close(fig)
-                
-            if n==0:
-                for var in ["num_truth","num_reco"]:
-                    figb, axb = plt.subplots()
-                    figs, axs = plt.subplots()
-                    fig, ax = plt.subplots()
-                    bins = np.arange(-0.5,11.5,1.)
-                    for r,reco_prefix in enumerate(config.reco_prefixes):
-                        if r>0 and "truth" in var:
-                            continue
-                        bkgv = ak.sum(bkg_pairs[reco_prefix]['truth_pt' if 'truth' in var else 'reco_pt']>50.,axis=1)
-                        bkgw = bkg_pairs[reco_prefix]["weight"]
-                        sigv = ak.sum(sig_pairs[reco_prefix]['truth_pt' if 'truth' in var else 'reco_pt']>50.,axis=1)
-                        axb.hist(bkgv,bins=bins,histtype='step',label='Truth' if 'truth' in var else reco_prefix,weights=bkgw)
-                        axs.hist(sigv,bins=bins,histtype='step',label='Truth' if 'truth' in var else reco_prefix)
-                        ax.hist(bkgv,bins=bins,histtype='step',label='bkg : '+('Truth' if 'truth' in var else reco_prefix),weights=bkgw,density=True)
-                        ax.hist(sigv,bins=bins,histtype='step',label='sig : '+('Truth' if 'truth' in var else reco_prefix),density=True)
-                    place_legend_above(axb)
-                    place_legend_above(axs)
-                    place_legend_above(ax)
-                    figb.savefig(build_debug_plot_path(config.name, 'debug_bkg_%s%s_nocorr_%s.pdf'%(prefix,var,config.name)), bbox_inches='tight')
-                    figs.savefig(build_debug_plot_path(config.name, 'debug_sig_%s%s_nocorr_%s.pdf'%(prefix,var,config.name)), bbox_inches='tight')
-                    fig.savefig(build_debug_plot_path(config.name, 'debug_%s%s_nocorr_%s.pdf'%(prefix,var,config.name)), bbox_inches='tight')
-                    plt.close(figb)
-                    plt.close(figs)
-                    plt.close(fig)
-        
-    for n in range(len(config.nobjs)):
-        for reco_prefix, reco_label in zip(config.reco_prefixes, config.reco_labels):
-            if n==0:
-                
-                # compute uncorrected response
-                response_uncorr, resol_uncorr, _ = compute_response(
-                    bkg_pairs[reco_prefix], 
-                    config.truth_pt_bins, 
-                    config.truth_eta_bins, 
-                    config.pt_min,
-                    debug=f"{config.name}_{reco_prefix}" if corr_cache=="" else None
+
+    if debug:
+        for nobj in config.nobjs:
+            _debug_kinematic_plots(config, sig_pairs, bkg_pairs, nobj, prefix, "_nocorr")
+        _debug_multiplicity_plots(config, sig_pairs, bkg_pairs, prefix, "_nocorr")
+
+    for reco_prefix, reco_label in zip(config.reco_prefixes, config.reco_labels):
+        sp = sig_pairs[reco_prefix]
+        bp = bkg_pairs[reco_prefix]
+
+        # ---- response and corrections (computed once per collection, before any nobj loop) ----
+        response_uncorr, resol_uncorr, _ = compute_response(
+            bp,
+            config.truth_pt_bins,
+            config.truth_eta_bins,
+            config.pt_min,
+            debug=f"{config.name}_{reco_prefix}" if corr_cache=="" else None
+        )
+
+        # handle corrections (compute or load)
+        corr_filename = corr_cache
+        if corr_filename == "":
+            # Default filename if computing
+            corr_filename = f"{prefix}{config.name}_corrs_{reco_prefix}.pkl"
+
+        if corr_cache != "":
+            # ----  Corrections ----
+            print(f"Loading corrections from {corr_filename}_{reco_prefix}")
+            rhosub,corrector = load_corrs(f"{corr_filename}_{reco_prefix}.pkl")[reco_prefix]
+
+            if config.do_rho_sub:
+                rhosub(bp)
+                rhosub(sp)
+            corrector(bp)
+            corrector(sp)
+
+        else:
+            # ---- COMPUTE Corrections ----
+            corrs = {}
+
+            print(f"Starting {reco_prefix}...")
+            # compute area subtraction (if requested)
+            if config.do_rho_sub:
+                rhosub = AreaSubtractor(
+                    bp,
+                    config.truth_eta_bins,
+                    debug=prefix+reco_prefix+"_"
                 )
-                
-                # handle corrections (compute or load)
-                corr_filename = corr_cache
-                if corr_filename == "":
-                    # Default filename if computing
-                    corr_filename = f"{prefix}{config.name}_corrs_{reco_prefix}.pkl"
 
-                if corr_cache != "":
-                    # ----  Corrections ----
-                    print(f"Loading corrections from {corr_filename}_{reco_prefix}")
-                    rhosub,corrector = load_corrs(f"{corr_filename}_{reco_prefix}.pkl")[reco_prefix]
-                    
-                    if config.do_rho_sub:
-                        rhosub(bkg_pairs[reco_prefix])
-                        rhosub(sig_pairs[reco_prefix])
-                    corrector(bkg_pairs[reco_prefix])
-                    corrector(sig_pairs[reco_prefix])
+                rhosub(bp)
+                rhosub(sp)
 
-                else:
-                    # ---- COMPUTE Corrections ----
-                    corrs = {}
-                    
-                    print(f"Starting {reco_prefix}...")
-                    # compute area subtraction (if requested)
-                    if config.do_rho_sub:
-                        rhosub = AreaSubtractor(
-                            bkg_pairs[reco_prefix], 
-                            config.truth_eta_bins,
-                            debug=prefix+reco_prefix+"_"
-                        )
-                        
-                        rhosub(bkg_pairs[reco_prefix])
-                        rhosub(sig_pairs[reco_prefix])
-                        
-                        # recompute response corrections for debug
-                        response_acorr, resol_acorr, _ = compute_response(
-                            bkg_pairs[reco_prefix], 
-                            config.truth_pt_bins, 
-                            config.truth_eta_bins,
-                            config.pt_min,
-                            debug=None
-                        )
-                    else:
-                        rhosub = None
-
-                    # compute response correction
-                    corrector = ResponseInterpolator(
-                        response_acorr if config.do_rho_sub else response_uncorr,
-                        resol_acorr if config.do_rho_sub else resol_uncorr,
-                        config.truth_pt_bins, 
-                        config.truth_eta_bins,
-                        debug=f"{config.name}_{reco_prefix}_responseinterp",
-                        spline_lambda=config.spline_lambdas.get(reco_prefix, 1e-5),
-                    )
-                                    
-                    #apply corrections
-                    corrector(bkg_pairs[reco_prefix])
-                    corrector(sig_pairs[reco_prefix])
-                    
-                    corrs[reco_prefix] = (rhosub,corrector)
-                    # Save once
-                    print(f"Saving corrections to {corr_filename}")
-                    save_corrs(corrs, corr_filename)
-                
-                # recompute response corrections
-                response_corr, resol_corr, _ = compute_response(
-                    bkg_pairs[reco_prefix], 
-                    config.truth_pt_bins, 
+                # recompute response corrections for debug
+                response_acorr, resol_acorr, _ = compute_response(
+                    bp,
+                    config.truth_pt_bins,
                     config.truth_eta_bins,
                     config.pt_min,
-                    debug=f"{config.name}_{reco_prefix}_corr" if corr_cache=="" else None
+                    debug=None
                 )
-                print(f"Finished {reco_prefix} response...")
-                
-                del corrector
-                del rhosub
-                gc.collect()
-                
+            else:
+                rhosub = None
+
+            # compute response correction
+            corrector = ResponseInterpolator(
+                response_acorr if config.do_rho_sub else response_uncorr,
+                resol_acorr if config.do_rho_sub else resol_uncorr,
+                config.truth_pt_bins,
+                config.truth_eta_bins,
+                debug=f"{config.name}_{reco_prefix}_responseinterp",
+                spline_lambda=config.spline_lambdas.get(reco_prefix, 1e-5),
+            )
+
+            #apply corrections
+            corrector(bp)
+            corrector(sp)
+
+            corrs[reco_prefix] = (rhosub,corrector)
+            # Save once
+            print(f"Saving corrections to {corr_filename}")
+            save_corrs(corrs, corr_filename)
+
+        # recompute response corrections
+        response_corr, resol_corr, _ = compute_response(
+            bp,
+            config.truth_pt_bins,
+            config.truth_eta_bins,
+            config.pt_min,
+            debug=f"{config.name}_{reco_prefix}_corr" if corr_cache=="" else None
+        )
+        print(f"Finished {reco_prefix} response...")
+
+        del corrector
+        del rhosub
+        gc.collect()
+
+        # ---- per-collection caches on the corrected pairs ----
+        sig_w = np.asarray(ak.to_numpy(sp["weight"]), dtype=np.float64)
+        bkg_w = np.asarray(ak.to_numpy(bp["weight"]), dtype=np.float64)
+        sig_reco_order = kth_sort_order(sp, "reco_pt")
+        bkg_reco_order = kth_sort_order(bp, "reco_pt")
+
+        for n, nobj in enumerate(config.nobjs):
+            # nobj-th leading reco pt and event selections, computed once per (collection, nobj)
+            sig_reco_k = kth_from_order(sp, "reco_pt", sig_reco_order, nobj)
+            bkg_reco_k = kth_from_order(bp, "reco_pt", bkg_reco_order, nobj)
+            sig_sel_masks = [_resolve_selector(sel, sp, nobj) for sel in config.sels]
+            bkg_sel_masks = [_resolve_selector(sel, bp, nobj) for sel in config.sels]
+            sig_rate_masks = [_resolve_selector(sel, sp, nobj) for sel in config.rate_sels]
+            bkg_rate_masks = [_resolve_selector(sel, bp, nobj) for sel in config.rate_sels]
+            turnon_cache = {}
+            full_eff_cache = {}
+
+            def event_selections(s, dijet_threshold):
+                """Denominator selections for selector s (plus the truth multiplicity cut for m_jj turn-ons)."""
+                sig_mask = sig_sel_masks[s]
+                bkg_mask = bkg_sel_masks[s]
+                if dijet_threshold is not None:
+                    sig_mask = sig_mask & truth_multiplicity_selector(sp, nobj, pt_min=dijet_threshold)
+                    bkg_mask = bkg_mask & truth_multiplicity_selector(bp, nobj, pt_min=dijet_threshold)
+                return sig_mask, bkg_mask
+
+            def full_efficiencies(r, s, dijet_threshold):
+                """Full efficiency scans; they only depend on (rate selector, selector, m_jj threshold)."""
+                key = (r, s, dijet_threshold)
+                if key not in full_eff_cache:
+                    sig_mask, bkg_mask = event_selections(s, dijet_threshold)
+                    full_eff_cache[key] = (
+                        compute_full_efficiency(
+                            sp, config.truth_pt_bins, nobj, sig_mask,
+                            numerator_selector=sig_rate_masks[r], weights=False,
+                            reco_pt_kth=sig_reco_k, event_weights=sig_w,
+                        ),
+                        compute_full_efficiency(
+                            bp, config.truth_pt_bins, nobj, bkg_mask,
+                            numerator_selector=bkg_rate_masks[r], weights=True,
+                            reco_pt_kth=bkg_reco_k, event_weights=bkg_w,
+                        ),
+                    )
+                return full_eff_cache[key]
 
             for r in range(len(config.rate_sels)):
                 # Compute threshold for fixed background efficiency
                 rate_eff = config.rates[n]/31_000.
                 threshold,actual_eff = compute_pt_threshold(
-                    bkg_pairs[reco_prefix],
+                    bp,
                     rate_eff,
-                    config.nobjs[n],
-                    selector=config.rate_sels[r],
+                    nobj,
+                    selector=bkg_rate_masks[r],
+                    reco_pt_kth=bkg_reco_k,
+                    event_weights=bkg_w,
                 ) #in kHz
-                print(f"For {reco_prefix}, n={config.nobjs[n]}, target rate efficiency of {rate_eff:.6f}, threshold of {threshold:.6f} gives actual rate efficiency of {actual_eff:.6f}")
-    
-                for turnon_var, turnon_fn, turnon_label, turnon_bins in zip(
-                    config.turnon_vars,
-                    config.turnon_fns,
-                    config.turnon_var_labels,
-                    config.turnon_bins,
-                ):
-                    if turnon_var == "_dijet_mass":
-                        turnon_values = dijet_mass_turnon_var(
-                            sig_pairs[reco_prefix],
-                            config.nobjs[n],
-                            pt_min=threshold,
-                        )
-                    else:
-                        turnon_values = turnon_fn(sig_pairs[reco_prefix], config.nobjs[n])
-                    for s in range(len(config.sels)):
-                        selector = config.sels[s]
-                        if turnon_var == "_dijet_mass":
-                            def selector(pairs, nobj, _selector=selector, _threshold=threshold):
-                                return _selector(pairs, nobj) & truth_multiplicity_selector(
-                                    pairs, nobj, pt_min=_threshold
-                                )
+                print(f"For {reco_prefix}, n={nobj}, target rate efficiency of {rate_eff:.6f}, threshold of {threshold:.6f} gives actual rate efficiency of {actual_eff:.6f}")
 
-                        # Signal efficiency vs turn-on variable
-                        centers, eff, _,_, err = compute_signal_efficiency(
-                            sig_pairs[reco_prefix],
-                            threshold,
-                            turnon_bins,
-                            config.nobjs[n],
-                            selector,
-                            numerator_selector=config.rate_sels[r],
-                            turnon_values=turnon_values,
-                        )
-                        
-                        full_sig_eff, full_sig_err = compute_full_efficiency(
-                            sig_pairs[reco_prefix],
-                            config.truth_pt_bins,
-                            config.nobjs[n],
-                            selector,
-                            numerator_selector=config.rate_sels[r],
-                            weights=False,
-                        )
-                        full_bkg_eff, full_bkg_err = compute_full_efficiency(
-                            bkg_pairs[reco_prefix],
-                            config.truth_pt_bins,
-                            config.nobjs[n],
-                            selector,
-                            numerator_selector=config.rate_sels[r],
-                            weights=True,
-                        )
-    
-                        results.append(
-                            RunResult(
-                                name=config.name,
-                                sel_label=config.sel_labels[s],
-                                rate_sel_label=config.rate_sel_labels[r],
-                                reco=reco_prefix,
-                                reco_label=reco_label,
-                                nobj=config.nobjs[n],
-                                fixrate=True,
-                                threshold=threshold,
-                                rate=config.rates[n],
-                                truth_pt_bins=config.truth_pt_bins,
-                                truth_eta_bins=config.truth_eta_bins,
-                                signal_efficiency=eff,
-                                signal_efficiency_error=err,
-                                full_sig_efficiency=full_sig_eff,
-                                full_sig_efficiency_error=full_sig_err,
-                                full_bkg_efficiency=full_bkg_eff,
-                                full_bkg_efficiency_error=full_bkg_err,
-                                response_uncorr=response_uncorr,
-                                response_corr=response_corr,
-                                resol_uncorr=resol_uncorr,
-                                resol_corr=resol_corr,
-                                turnon_var=turnon_var,
-                                turnon_label=turnon_label,
-                                turnon_bins=turnon_bins,
-                            )
-                        )
-                    
-                    
-                for threshold in config.triggers[n]:
+                # fixed-rate threshold first, then the fixed trigger thresholds
+                thresholds = [(True, threshold, config.rates[n])]
+                for trig_threshold in config.triggers[n]:
                     rate, actual_eff = compute_rate(
-                        bkg_pairs[reco_prefix],
-                        threshold,
-                        config.nobjs[n],
-                        selector=config.rate_sels[r],
+                        bp,
+                        trig_threshold,
+                        nobj,
+                        selector=bkg_rate_masks[r],
+                        reco_pt_kth=bkg_reco_k,
+                        event_weights=bkg_w,
                     )
-                    print(f"For {reco_prefix}, n={config.nobjs[n]}, trigger threshold of {threshold:.1f} gives actual rate efficiency of {actual_eff:.6f} (rate {rate:.6f} kHz)")
-                    for turnon_var, turnon_fn, turnon_label, turnon_bins in zip(
+                    print(f"For {reco_prefix}, n={nobj}, trigger threshold of {trig_threshold:.1f} gives actual rate efficiency of {actual_eff:.6f} (rate {rate:.6f} kHz)")
+                    thresholds.append((False, trig_threshold, rate))
+
+                for fixrate, thr, rate in thresholds:
+                    for t_idx, (turnon_var, turnon_fn, turnon_label, turnon_bins) in enumerate(zip(
                         config.turnon_vars,
                         config.turnon_fns,
                         config.turnon_var_labels,
                         config.turnon_bins,
-                    ):
-                        if turnon_var == "_dijet_mass":
-                            turnon_values = dijet_mass_turnon_var(
-                                sig_pairs[reco_prefix],
-                                config.nobjs[n],
-                                pt_min=threshold,
-                            )
+                    )):
+                        is_dijet = turnon_var == "_dijet_mass"
+                        if is_dijet:
+                            turnon_values = dijet_mass_turnon_var(sp, nobj, pt_min=thr)
                         else:
-                            turnon_values = turnon_fn(sig_pairs[reco_prefix], config.nobjs[n])
+                            if t_idx not in turnon_cache:
+                                turnon_cache[t_idx] = turnon_fn(sp, nobj)
+                            turnon_values = turnon_cache[t_idx]
+                        dijet_threshold = thr if is_dijet else None
+
                         for s in range(len(config.sels)):
-                            selector = config.sels[s]
-                            if turnon_var == "_dijet_mass":
-                                def selector(pairs, nobj, _selector=selector, _threshold=threshold):
-                                    return _selector(pairs, nobj) & truth_multiplicity_selector(
-                                        pairs, nobj, pt_min=_threshold
-                                    )
+                            sig_mask, _ = event_selections(s, dijet_threshold)
 
                             # Signal efficiency vs turn-on variable
                             centers, eff, _,_, err = compute_signal_efficiency(
-                                sig_pairs[reco_prefix],
-                                threshold,
+                                sp,
+                                thr,
                                 turnon_bins,
-                                config.nobjs[n],
-                                selector,
-                                numerator_selector=config.rate_sels[r],
+                                nobj,
+                                sig_mask,
+                                numerator_selector=sig_rate_masks[r],
                                 turnon_values=turnon_values,
+                                reco_pt_kth=sig_reco_k,
+                                event_weights=sig_w,
                             )
-    
+
+                            (full_sig_eff, full_sig_err), (full_bkg_eff, full_bkg_err) = full_efficiencies(r, s, dijet_threshold)
+
                             results.append(
                                 RunResult(
                                     name=config.name,
@@ -2075,9 +2010,9 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
                                     rate_sel_label=config.rate_sel_labels[r],
                                     reco=reco_prefix,
                                     reco_label=reco_label,
-                                    nobj=config.nobjs[n],
-                                    fixrate=False,
-                                    threshold=threshold,
+                                    nobj=nobj,
+                                    fixrate=fixrate,
+                                    threshold=thr,
                                     rate=rate,
                                     truth_pt_bins=config.truth_pt_bins,
                                     truth_eta_bins=config.truth_eta_bins,
@@ -2096,67 +2031,15 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
                                     turnon_bins=turnon_bins,
                                 )
                             )
-                
-        if debug: 
-            for var in ["reco_pt","reco_eta","truth_pt","truth_eta"]:
-                figb, axb = plt.subplots()
-                figs, axs = plt.subplots()
-                fig, ax = plt.subplots()
-                for r,reco_prefix in enumerate(config.reco_prefixes):
-                    if r>0 and "truth" in var:
-                        continue
-                    if 'pt' in var:
-                        bins = config.truth_pt_bins
-                    else:
-                        bins = config.truth_eta_bins
-                    bkgv = select_kth(bkg_pairs[reco_prefix], var, "reco_pt" if "reco" in var else "truth_pt", config.nobjs[n])
-                    bkgw = bkg_pairs[reco_prefix]["weight"]
-                    sigv = select_kth(sig_pairs[reco_prefix], var, "reco_pt" if "reco" in var else "truth_pt", config.nobjs[n])
-                    axb.hist(bkgv,bins=bins,histtype='step',label='Truth' if 'truth' in var else reco_prefix,weights=bkgw)
-                    axs.hist(sigv,bins=bins,histtype='step',label='Truth' if 'truth' in var else reco_prefix)
-                    ax.hist(bkgv,bins=bins,histtype='step',label='bkg : '+('Truth' if 'truth' in var else reco_prefix),weights=bkgw,density=True)
-                    ax.hist(sigv,bins=bins,histtype='step',label='sig : '+('Truth' if 'truth' in var else reco_prefix),density=True)
-                place_legend_above(axb)
-                place_legend_above(axs)
-                place_legend_above(ax)
-                if 'pt' in var:
-                    axb.set_yscale('log')
-                    axs.set_yscale('log')
-                    ax.set_yscale('log')
-                figb.savefig(build_debug_plot_path(config.name, 'debug_bkg_%s%s_%s_%i.pdf'%(prefix,var,config.name,config.nobjs[n])), bbox_inches='tight')
-                figs.savefig(build_debug_plot_path(config.name, 'debug_sig_%s%s_%s_%i.pdf'%(prefix,var,config.name,config.nobjs[n])), bbox_inches='tight')
-                fig.savefig(build_debug_plot_path(config.name, 'debug_%s%s_%s_%i.pdf'%(prefix,var,config.name,config.nobjs[n])), bbox_inches='tight')
-                plt.close(figb)
-                plt.close(figs)
-                plt.close(fig)
-            
-            if n==0:
-                for var in ["num_truth","num_reco"]:
-                    figb, axb = plt.subplots()
-                    figs, axs = plt.subplots()
-                    fig, ax = plt.subplots()
-                    bins = np.arange(-0.5,11.5,1.)
-                    for r,reco_prefix in enumerate(config.reco_prefixes):
-                        if r>0 and "truth" in var:
-                            continue
-                        bkgv = ak.sum(bkg_pairs[reco_prefix]['truth_pt' if 'truth' in var else 'reco_pt']>50.,axis=1)
-                        bkgw = bkg_pairs[reco_prefix]["weight"]
-                        sigv = ak.sum(sig_pairs[reco_prefix]['truth_pt' if 'truth' in var else 'reco_pt']>50.,axis=1)
-                        axb.hist(bkgv,bins=bins,histtype='step',label='Truth' if 'truth' in var else reco_prefix,weights=bkgw)
-                        axs.hist(sigv,bins=bins,histtype='step',label='Truth' if 'truth' in var else reco_prefix)
-                        ax.hist(bkgv,bins=bins,histtype='step',label='bkg : '+('Truth' if 'truth' in var else reco_prefix),weights=bkgw,density=True)
-                        ax.hist(sigv,bins=bins,histtype='step',label='sig : '+('Truth' if 'truth' in var else reco_prefix),density=True)
-                    place_legend_above(axb)
-                    place_legend_above(axs)
-                    place_legend_above(ax)
-                    figb.savefig(build_debug_plot_path(config.name, 'debug_bkg_%s%s_%s.pdf'%(prefix,var,config.name)), bbox_inches='tight')
-                    figs.savefig(build_debug_plot_path(config.name, 'debug_sig_%s%s_%s.pdf'%(prefix,var,config.name)), bbox_inches='tight')
-                    fig.savefig(build_debug_plot_path(config.name, 'debug_%s%s_%s.pdf'%(prefix,var,config.name)), bbox_inches='tight')
-                    plt.close(figb)
-                    plt.close(figs)
-                    plt.close(fig)
 
-    
+        del sig_reco_order, bkg_reco_order
+        gc.collect()
+
+    if debug:
+        for nobj in config.nobjs:
+            _debug_kinematic_plots(config, sig_pairs, bkg_pairs, nobj, prefix, "")
+        _debug_multiplicity_plots(config, sig_pairs, bkg_pairs, prefix, "")
+
     return results
 
 def save_run_result(result: RunResult, path):
@@ -2422,8 +2305,9 @@ def barrel_selector(pairs, nobj, maxeta=1.4, coll="truth"):
     has_nobj = ak.to_numpy(ak.num(pairs[eta_field], axis=1) >= nobj)
     event_sel = has_nobj.copy()
 
+    order = kth_sort_order(pairs, pt_field)
     for n in range(1, nobj + 1):
-        eta_n = select_kth(pairs, eta_field, pt_field, n)
+        eta_n = kth_from_order(pairs, eta_field, order, n)
         event_sel &= np.abs(eta_n) < maxeta
 
     return event_sel
@@ -2665,7 +2549,8 @@ def hh_mass_window_selector(pairs, nobj, m_min=75., m_max=175., coll='reco', deb
 
 def eratio_selector(pairs, nobj, threshold=0.65):
     """
-    Select events where the leading reco Eratio is above ``threshold``.
+    Select events where each of the ``nobj`` leading (in reco pt) reco objects
+    has Eratio above ``threshold``.
 
     If ``reco_Eratio`` is not available for the current collection, this
     selector is a no-op and all events pass.
@@ -2673,8 +2558,9 @@ def eratio_selector(pairs, nobj, threshold=0.65):
     reco_eratio = np.ones(len(pairs), dtype=bool)
 
     if "reco_Eratio" in ak.fields(pairs):
+        order = kth_sort_order(pairs, "reco_pt")
         for n in range(1,nobj+1):
-            reco_eratio = reco_eratio & ak.to_numpy(ak.fill_none(select_kth(pairs, "reco_Eratio", "reco_pt", nobj) > threshold, False))
+            reco_eratio = reco_eratio & (kth_from_order(pairs, "reco_Eratio", order, n) > threshold)
 
     return reco_eratio
 
