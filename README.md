@@ -90,7 +90,7 @@ For MET studies, enable `match_dict.met_mode: true`. In this mode the code build
 
 
 - `null_selector`
-- `boosted_truth_selector` (kwargs: `dr_threshold`, `debug`, `chunk_size`)
+- `boosted_truth_selector` (kwargs: `dr_threshold`, `truth_pt_threshold`, `debug`, `chunk_size`; default `truth_pt_threshold: 40.0`)
 - `hh_mass_window_selector`
 - `eratio_selector` (kwargs: `threshold`)
 

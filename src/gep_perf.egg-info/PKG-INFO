@@ -81,7 +81,7 @@ extra_vars: []
 ### Supported selector names
 
 - `null_selector`
-- `boosted_truth_selector` (kwargs: `dr_threshold`, `debug`, `chunk_size`)
+- `boosted_truth_selector` (kwargs: `dr_threshold`, `truth_pt_threshold`, `debug`, `chunk_size`; default `truth_pt_threshold: 40.0`)
 - `hh_mass_window_selector`
 
 To add more, extend `gep_perf.config.SELECTORS`.

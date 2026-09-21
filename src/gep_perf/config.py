@@ -11,6 +11,7 @@ import yaml
 from .core import (
     RunConfig,
     null_selector,
+    truth_multiplicity_selector,
     boosted_truth_selector,
     hh_mass_window_selector,
     eratio_selector,
@@ -23,6 +24,7 @@ from .core import (
 # Selector registry for YAML -> callable resolution
 SELECTORS = {
     "null_selector": null_selector,
+    "truth_multiplicity_selector": truth_multiplicity_selector,
     "boosted_truth_selector": boosted_truth_selector,
     "hh_mass_window_selector": hh_mass_window_selector,
     "eratio_selector": eratio_selector,
