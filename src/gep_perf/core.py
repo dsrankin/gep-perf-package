@@ -36,20 +36,32 @@ def marker_alpha(alpha: float) -> float:
     return 1 - (1 - alpha) * 0.5
 
 
-def place_legend_above(ax=None, *, title=None):
+def place_legend_above(ax=None, *, title=None, max_cols=3):
+    """
+    Place the legend in a centered block above the axes, wrapping into
+    multiple rows (at most ``max_cols`` columns) instead of forcing every
+    entry into one expanded row: with more than a couple of long labels
+    (as in the per-collection overlay plots) an expand-to-full-width single
+    row overlaps entries on top of each other. Column widths are sized by
+    matplotlib from the actual label text, so nothing is cropped or overlaps.
+    """
     ax = ax or plt.gca()
     handles, labels = ax.get_legend_handles_labels()
     if not handles:
         return None
+    ncol = min(len(handles), max_cols)
+    nrows = -(-len(handles) // ncol)  # ceil division
     legend = ax.legend(
-        loc='lower left',
-        bbox_to_anchor=(0, 1.02, 1, 0.2),
-        mode='expand',
-        ncol=max(1, len(handles)),
+        loc='lower center',
+        bbox_to_anchor=(0.5, 1.02),
+        ncol=ncol,
         borderaxespad=0,
         title=title,
+        fontsize=8 if len(handles) > max_cols else None,
     )
-    ax.figure.subplots_adjust(top=LEGEND_TOP_MARGIN)
+    # more rows need more headroom above the axes
+    top = LEGEND_TOP_MARGIN - 0.10 * (nrows - 1)
+    ax.figure.subplots_adjust(top=max(top, 0.35))
     return legend
 
 
