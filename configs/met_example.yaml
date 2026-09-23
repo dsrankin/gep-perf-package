@@ -1,70 +1,32 @@
 name: MET
 signal_files:
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_zvvhbb_apr20_EXT0/outputGEPNtuple.root
+- /Users/dsrankin/Downloads/GEPBase/user.drankin.tgp_base_zvvhbb_sep22_EXT0/outputGEPNtuple.root
 background_files:
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz0_apr20_EXT0/outputGEPNtuple.root
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz1_apr20_EXT0/outputGEPNtuple.root
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_zvvhbb_apr20_EXT0/outputGEPNtuple.root
+- /Users/dsrankin/Downloads/GEPBase/user.drankin.tgp_base_jz0_sep22_EXT0/outputGEPNtuple.root
+- /Users/dsrankin/Downloads/GEPBase/user.drankin.tgp_base_jz1_sep22_EXT0/outputGEPNtuple.root
+- /Users/dsrankin/Downloads/GEPBase/user.drankin.tgp_base_zvvhbb_sep22_EXT0/outputGEPNtuple.root
 background_weights:
 - 76.66268004
 - 3.656677112
-- 0.
+- 0.0
 reco_prefixes:
-- GepMETGepCellsE6LSB50G4SIG2Tower
-- GepMETGepCellsE6LSB50G4SIG2TowerSK
-- GepMETGepCellsE6LSB50G4SIG2TowerEtaSK
-- GepMETGepCellsE6LSB50G6SIG2Tower
-- GepMETGepCellsE6LSB50G6SIG2TowerSK
-- GepMETGepCellsE6LSB50G6SIG2TowerEtaSK
-- GepMETGepCellsE6LSB100G2SIG2Tower
-- GepMETGepCellsE6LSB100G2SIG2TowerSK
-- GepMETGepCellsE6LSB100G2SIG2TowerEtaSK
-- GepMETGepCellsE8LSB50G2SIG2Tower
-- GepMETGepCellsE8LSB50G2SIG2TowerSK
-- GepMETGepCellsE8LSB50G2SIG2TowerEtaSK
-- GepMETGepCellsE8LSB100G2SIG2Tower
-- GepMETGepCellsE8LSB100G2SIG2TowerSK
-- GepMETGepCellsE8LSB100G2SIG2TowerEtaSK
-- GepMETGepCellsE10LSB50G2SIG2Tower
-- GepMETGepCellsE10LSB50G2SIG2TowerSK
-- GepMETGepCellsE10LSB50G2SIG2TowerEtaSK
-- GepMETOfflineCellsTower
-- GepMETOfflineCellsTowerSK
-- GepMETOfflineCellsTowerEtaSK
+- GepMETGEPCellsTower
+- GepMETGEPCellsTowerEtaSK
 - GepMETCaloTopoClusters422
-- GepMETCaloTopoClusters422SK
 - GepMETCaloTopoClusters422EtaSK
 - gFex_JwoJ
 - gFex_RhoRMS
 - gFex_NC
+- jFex
 reco_labels:
-- "GEP CellTower (6-50-4, 2 sigma)"
-- "GEP CellTower, SK (6-50-4, 2 sigma)"
-- "GEP CellTower, EtaSK (6-50-4, 2 sigma)"
-- "GEP CellTower (6-50-6, 2 sigma)"
-- "GEP CellTower, SK (6-50-6, 2 sigma)"
-- "GEP CellTower, EtaSK (6-50-6, 2 sigma)"
-- "GEP CellTower (6-100-2, 2 sigma)"
-- "GEP CellTower, SK (6-100-2, 2 sigma)"
-- "GEP CellTower, EtaSK (6-100-2, 2 sigma)"
-- "GEP CellTower (8-50-2, 2 sigma)"
-- "GEP CellTower, SK (8-50-2, 2 sigma)"
-- "GEP CellTower, EtaSK (8-50-2, 2 sigma)"
-- "GEP CellTower (8-100-2, 2 sigma)"
-- "GEP CellTower, SK (8-100-2, 2 sigma)"
-- "GEP CellTower, EtaSK (8-100-2, 2 sigma)"
-- "GEP CellTower (10-50-2, 2 sigma)"
-- "GEP CellTower, SK (10-50-2, 2 sigma)"
-- "GEP CellTower, EtaSK (10-50-2, 2 sigma)"
-- "Offline CellTower"
-- "Offline CellTower, SK"
-- "Offline CellTower, EtaSK"
-- "422 Topocluster"
-- "422 Topocluster, SK"
-- "422 Topocluster, EtaSK"
-- "gFEX JwoJ MET"
-- "gFEX RhoRMS MET"
-- "gFEX NC MET"
+- GEP CellTower
+- GEP CellTower, EtaSK
+- 422 Topocluster
+- 422 Topocluster, EtaSK
+- gFEX JwoJ MET
+- gFEX RhoRMS MET
+- gFEX NC MET
+- jFEX MET
 truth_prefix: truth_neu
 truth_suffix: ''
 match_dict:
@@ -74,26 +36,7 @@ match_dict:
   - et
   - et
   - et
-  - et
-  - et
-  - et
-  - et
-  - et
-  - et
-  - et
-  - et
-  - et
-  - et
-  - et
-  - et
-  - et
-  - et
-  - et
-  - et
-  - et
-  - et
-  - et
-  - et
+  - met
   - met
   - met
   - met
@@ -101,6 +44,7 @@ match_dict:
   - gFex_JwoJ
   - gFex_RhoRMS
   - gFex_NC
+  - jFex
 reco_pt_min: 30.0
 truth_pt_min: 50.0
 pt_min: 30.0
@@ -116,7 +60,7 @@ rate_selectors:
   label: ''
 turnon_variables:
 - name: truth_pt
-  label: "Truth MET [GeV]"
+  label: Truth MET [GeV]
   bins: truth_pt_bins
 truth_pt_bins:
   start: 25
@@ -133,29 +77,9 @@ triggers:
   - 200.0
 extra_vars: []
 spline_lambdas:
-  GepMETGepCellsE6LSB50G4SIG2Tower: 1e-7
-  GepMETGepCellsE6LSB50G4SIG2TowerSK: 1e-7
-  GepMETGepCellsE6LSB50G4SIG2TowerEtaSK: 1e-7
-  GepMETGepCellsE6LSB50G6SIG2Tower: 1e-7
-  GepMETGepCellsE6LSB50G6SIG2TowerSK: 1e-7
-  GepMETGepCellsE6LSB50G6SIG2TowerEtaSK: 1e-7
-  GepMETGepCellsE6LSB100G2SIG2Tower: 1e-7
-  GepMETGepCellsE6LSB100G2SIG2TowerSK: 1e-7
-  GepMETGepCellsE6LSB100G2SIG2TowerEtaSK: 1e-7
-  GepMETGepCellsE8LSB50G2SIG2Tower: 1e-7
-  GepMETGepCellsE8LSB50G2SIG2TowerSK: 1e-7
-  GepMETGepCellsE8LSB50G2SIG2TowerEtaSK: 1e-7
-  GepMETGepCellsE8LSB100G2SIG2Tower: 1e-7
-  GepMETGepCellsE8LSB100G2SIG2TowerSK: 1e-7
-  GepMETGepCellsE8LSB100G2SIG2TowerEtaSK: 1e-7
-  GepMETGepCellsE10LSB50G2SIG2Tower: 1e-7
-  GepMETGepCellsE10LSB50G2SIG2TowerSK: 1e-7
-  GepMETGepCellsE10LSB50G2SIG2TowerEtaSK: 1e-7
-  GepMETOfflineCellsTower: 1e-7
-  GepMETOfflineCellsTowerSK: 1e-7
-  GepMETOfflineCellsTowerEtaSK: 1e-7
-  GepMETCaloTopoClusters422: 1e-7
-  GepMETCaloTopoClusters422SK: 1e-7
-  GepMETCaloTopoClusters422EtaSK: 1e-7
+  GepMETGEPCellsTower: 1.0e-07
+  GepMETGEPCellsTowerEtaSK: 1.0e-07
+  GepMETCaloTopoClusters422: 1.0e-07
+  GepMETCaloTopoClusters422EtaSK: 1.0e-07
 tree: ntuple
 dr_max: 0.7853975

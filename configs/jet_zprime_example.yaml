@@ -1,38 +1,38 @@
-name: Tau
+name: Jet_zprime
 signal_files:
-- /Users/dsrankin/Downloads/GEPBase/user.drankin.tgp_base_ytt_sep22_EXT0/outputGEPNtuple.root
+- /Users/dsrankin/Downloads/GEPBase/user.drankin.tgp_base_zprime_sep22_EXT0/outputGEPNtuple.root
 background_files:
 - /Users/dsrankin/Downloads/GEPBase/user.drankin.tgp_base_jz0_sep22_EXT0/outputGEPNtuple.root
 - /Users/dsrankin/Downloads/GEPBase/user.drankin.tgp_base_jz1_sep22_EXT0/outputGEPNtuple.root
+- /Users/dsrankin/Downloads/GEPBase/user.drankin.tgp_base_jz2_sep22_EXT0/outputGEPNtuple.root
+- /Users/dsrankin/Downloads/GEPBase/user.drankin.tgp_base_jz3_sep22_EXT0/outputGEPNtuple.root
+- /Users/dsrankin/Downloads/GEPBase/user.drankin.tgp_base_jz4_sep22_EXT0/outputGEPNtuple.root
+- /Users/dsrankin/Downloads/GEPBase/user.drankin.tgp_base_jz5_sep22_EXT0/outputGEPNtuple.root
 background_weights:
 - 76.66268004
 - 3.656677112
+- 0.0
+- 0.0
+- 0.0
+- 0.0
 reco_prefixes:
-- AntiKt1GEPCellsTowerAlgJets
-- AntiKt1GEPCellsTowerEtaSKAlgJets
-- AntiKt1CaloTopoClusters422AlgJets
-- AntiKt1CaloTopoClusters422EtaSKAlgJets
-- AntiKt2GEPCellsTowerAlgJets
-- AntiKt2GEPCellsTowerEtaSKAlgJets
-- AntiKt2CaloTopoClusters422AlgJets
-- AntiKt2CaloTopoClusters422EtaSKAlgJets
-- L1_eTauRoISim
+- AntiKt4GEPCellsTowerAlgJets
+- AntiKt4GEPCellsTowerEtaSKAlgJets
+- AntiKt4CaloTopoClusters422AlgJets
+- AntiKt4CaloTopoClusters422EtaSKAlgJets
+- AntiKt4EMPFlowJets
 - L1_jFexSRJetRoISim
-- reco_tau
+- L1_gFexSRJetRoISim
 reco_labels:
-- AK1 GEP CellTower
-- AK1 GEP CellTower, EtaSK
-- AK1 422 Topocluster
-- AK1 422 Topocluster, EtaSK
-- AK2 GEP CellTower
-- AK2 GEP CellTower, EtaSK
-- AK2 422 Topocluster
-- AK2 422 Topocluster, EtaSK
-- eFEX Tau
+- AK4 GEP CellTower
+- AK4 GEP CellTower, EtaSK
+- AK4 422 Topocluster
+- AK4 422 Topocluster, EtaSK
+- AK4 EMPFlow (offline)
 - jFEX Jet
-- Offline Tau
-truth_prefix: truth_tau
-truth_suffix: _vis
+- gFEX Jet
+truth_prefix: AntiKt4TruthJets
+truth_suffix: ''
 match_dict:
   pt_reco_names:
   - pt
@@ -40,31 +40,30 @@ match_dict:
   - pt
   - pt
   - pt
-  - pt
-  - pt
-  - pt
   - et
   - et
-  - pt
 reco_pt_min: 5.0
-truth_pt_min: 10.0
-pt_min: 2.0
+truth_pt_min: 20.0
+pt_min: 5.0
 reco_iso_dr: 0.4
-truth_iso_dr: 0.4
+truth_iso_dr: 0.6
 nobjs:
 - 1
 - 2
 selectors:
 - name: null_selector
   label: ''
-- name: barrel_selector
-  label: _barrel
+turnon_variables:
+- name: truth_pt
+  label: Truth $p_T$ [GeV]
+  bins: truth_pt_bins
+- name: dijet_mass
+  label: Truth $m_{jj}$ [GeV]
+  bins:
+    start: 0
+    stop: 1000
+    step: 25
 truth_pt_bins:
-- 10.0
-- 12.0
-- 14.0
-- 16.0
-- 18.0
 - 20.0
 - 22.0
 - 24.0
@@ -131,11 +130,6 @@ truth_pt_bins:
 - 230.0
 - 240.0
 - 250.0
-- 260.0
-- 270.0
-- 280.0
-- 290.0
-- 300.0
 truth_eta_bins:
 - -4.9
 - -3.2
@@ -152,13 +146,13 @@ truth_eta_bins:
 - 4.9
 do_rho_sub: false
 rates:
-- 10.0
-- 200.0
+- 50.0
+- 50.0
 triggers:
-- - 100.0
-  - 150.0
-- - 30.0
-  - 40.0
+- - 60.0
+  - 100.0
+- - 50.0
+  - 60.0
 extra_vars: []
 tree: ntuple
 dr_max: 0.2

@@ -1603,8 +1603,8 @@ class ResponseInterpolator:
             # Filter out invalid points
             valid = (R > 0) & (~np.isnan(R))
             
-            if np.sum(valid) < 3:
-                # Fallback: return identity
+            if np.sum(valid) < 5:
+                # Fallback: return identity (scipy's make_smoothing_spline requires >=5 points)
                 self.interpolators.append(None)
                 self.interp_ranges.append(None)
                 self.endpoint_values.append(None)
