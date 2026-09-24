@@ -156,23 +156,6 @@ if [[ "$OBJTYPE" == "all" ]] || [[ "$OBJTYPE" == "etaskjet" ]]; then
     plot_cmd perf_results/Jet_dijet_mass_{AntiKt4CaloTopoClusters422EtaSKAlgJets,AntiKt4GEPCellsTowerEtaSKAlgJets}_n4_boosted_rate100.npz --name boosted_etaskjet --plotlabel _mjj_boosted_rate100 --plottext "100 kHz (Boosted) [VBF HH->4b]" --nobj 0 --noerr --xmax -1
 fi
 
-## Jets (Z'->jj dijet resonance) -- new for GEPBase, no VBF/HH-specific selector
-if [[ "$OBJTYPE" == "all" ]] || [[ "$OBJTYPE" == "zprimejet" ]]; then
-    echo "Z' Jets"
-    PLOT_SUBDIR="zprime_jet"
-    plot_cmd perf_results/Jet_zprime_{AntiKt4CaloTopoClusters422AlgJets,AntiKt4GEPCellsTowerAlgJets,AntiKt4EMPFlowJets,L1_jFexSRJetRoISim,L1_gFexSRJetRoISim}_n1_pt100.npz --name jet_zprime --plotlabel _pt100 --plottext "J100 [Z'->jj]" --nobj 1 --xmax 200. --noerr --dofulleff --dorespresol
-    plot_cmd perf_results/Jet_zprime_{AntiKt4CaloTopoClusters422AlgJets,AntiKt4GEPCellsTowerAlgJets,AntiKt4EMPFlowJets,L1_jFexSRJetRoISim,L1_gFexSRJetRoISim}_n2_pt60.npz --name jet_zprime --plotlabel _pt60 --plottext "2J60 [Z'->jj]" --nobj 2 --xmax 100. --noerr --dofulleff
-    plot_cmd perf_results/Jet_zprime_{AntiKt4CaloTopoClusters422AlgJets,AntiKt4GEPCellsTowerAlgJets,AntiKt4EMPFlowJets,L1_jFexSRJetRoISim,L1_gFexSRJetRoISim}_n1_rate50.npz --name jet_zprime --plotlabel _rate50 --plottext "50 kHz [Z'->jj]" --nobj 1 --xmax 200. --noerr
-    plot_cmd perf_results/Jet_zprime_{AntiKt4CaloTopoClusters422AlgJets,AntiKt4GEPCellsTowerAlgJets,AntiKt4EMPFlowJets,L1_jFexSRJetRoISim,L1_gFexSRJetRoISim}_n2_rate50.npz --name jet_zprime --plotlabel _rate50 --plottext "50 kHz [Z'->jj]" --nobj 2 --xmax 150. --noerr
-
-    echo "VBF-style m_jj (Z')"
-    PLOT_SUBDIR="zprime_vbf_jet"
-    plot_cmd perf_results/Jet_zprime_dijet_mass_{AntiKt4CaloTopoClusters422AlgJets,AntiKt4GEPCellsTowerAlgJets,AntiKt4EMPFlowJets,L1_jFexSRJetRoISim,L1_gFexSRJetRoISim}_n1_pt100.npz --name jet_zprime --plotlabel _mjj_pt100 --plottext "J100 [Z'->jj]" --nobj 0 --noerr --xmax -1
-    plot_cmd perf_results/Jet_zprime_dijet_mass_{AntiKt4CaloTopoClusters422AlgJets,AntiKt4GEPCellsTowerAlgJets,AntiKt4EMPFlowJets,L1_jFexSRJetRoISim,L1_gFexSRJetRoISim}_n2_pt60.npz --name jet_zprime --plotlabel _mjj_pt60 --plottext "2J60 [Z'->jj]" --nobj 0 --noerr --xmax -1
-    plot_cmd perf_results/Jet_zprime_dijet_mass_{AntiKt4CaloTopoClusters422AlgJets,AntiKt4GEPCellsTowerAlgJets,AntiKt4EMPFlowJets,L1_jFexSRJetRoISim,L1_gFexSRJetRoISim}_n1_rate50.npz --name jet_zprime --plotlabel _mjj_rate50 --plottext "50 kHz [Z'->jj]" --nobj 0 --noerr --xmax -1
-    plot_cmd perf_results/Jet_zprime_dijet_mass_{AntiKt4CaloTopoClusters422AlgJets,AntiKt4GEPCellsTowerAlgJets,AntiKt4EMPFlowJets,L1_jFexSRJetRoISim,L1_gFexSRJetRoISim}_n2_rate50.npz --name jet_zprime --plotlabel _mjj_rate50 --plottext "50 kHz [Z'->jj]" --nobj 0 --noerr --xmax -1
-fi
-
 
 ## Taus (AK1 nominal + eTau/jFex RoI + new offline reco_tau)
 if [[ "$OBJTYPE" == "all" ]] || [[ "$OBJTYPE" == "tau" ]]; then
