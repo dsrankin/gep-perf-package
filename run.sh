@@ -15,6 +15,7 @@ for TYPE in "$@"; do
 
   [ "$OBJECT" = "jet" ] || [ "$OBJECT" = "all" ] && {
     gep-perf run configs/jet_example.yaml --plotdir perf_plots --resdir perf_results --collection-sets "$TYPE"
+    gep-perf run configs/jet_larger_example.yaml --plotdir perf_plots --resdir perf_results --collection-sets "$TYPE"
     gep-perf run configs/jet_tthad_example.yaml --plotdir perf_plots --resdir perf_results --collection-sets "$TYPE"
   }
 

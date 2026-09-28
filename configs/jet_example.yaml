@@ -1,13 +1,13 @@
 name: Jet
 signal_files:
-- /Users/dsrankin/Downloads/GEPBase/user.drankin.tgp_base_hhbbbb_sep22_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPBase/user.drankin.tgp_base_hhbbbb_sep25_EXT0/outputGEPNtuple.root
 background_files:
-- /Users/dsrankin/Downloads/GEPBase/user.drankin.tgp_base_jz0_sep22_EXT0/outputGEPNtuple.root
-- /Users/dsrankin/Downloads/GEPBase/user.drankin.tgp_base_jz1_sep22_EXT0/outputGEPNtuple.root
-- /Users/dsrankin/Downloads/GEPBase/user.drankin.tgp_base_jz2_sep22_EXT0/outputGEPNtuple.root
-- /Users/dsrankin/Downloads/GEPBase/user.drankin.tgp_base_jz3_sep22_EXT0/outputGEPNtuple.root
-- /Users/dsrankin/Downloads/GEPBase/user.drankin.tgp_base_jz4_sep22_EXT0/outputGEPNtuple.root
-- /Users/dsrankin/Downloads/GEPBase/user.drankin.tgp_base_jz5_sep22_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPBase/user.drankin.tgp_base_jz0_sep25_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPBase/user.drankin.tgp_base_jz1_sep25_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPBase/user.drankin.tgp_base_jz2_sep25_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPBase/user.drankin.tgp_base_jz3_sep25_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPBase/user.drankin.tgp_base_jz4_sep25_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPBase/user.drankin.tgp_base_jz5_sep25_EXT0/outputGEPNtuple.root
 background_weights:
 - 76.66268004
 - 3.656677112
@@ -18,6 +18,8 @@ background_weights:
 reco_prefixes:
 - AntiKt4GEPCellsTowerAlgJets
 - AntiKt4GEPCellsTowerEtaSKAlgJets
+- WTAConeGEPCellsTowerJets
+- WTAConeGEPCellsTowerEtaSKJets
 - AntiKt4CaloTopoClusters422AlgJets
 - AntiKt4CaloTopoClusters422EtaSKAlgJets
 - AntiKt4EMPFlowJets
@@ -26,6 +28,8 @@ reco_prefixes:
 reco_labels:
 - AK4 GEP CellTower
 - AK4 GEP CellTower, EtaSK
+- WTACone GEP CellTower
+- WTACone GEP CellTower, EtaSK
 - AK4 422 Topocluster
 - AK4 422 Topocluster, EtaSK
 - AK4 EMPFlow (offline)
@@ -35,6 +39,8 @@ truth_prefix: AntiKt4TruthJets
 truth_suffix: ''
 match_dict:
   pt_reco_names:
+  - pt
+  - pt
   - pt
   - pt
   - pt

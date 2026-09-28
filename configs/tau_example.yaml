@@ -1,9 +1,9 @@
 name: Tau
 signal_files:
-- /Users/dsrankin/Downloads/GEPBase/user.drankin.tgp_base_ytt_sep22_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPBase/user.drankin.tgp_base_ytt_sep25_EXT0/outputGEPNtuple.root
 background_files:
-- /Users/dsrankin/Downloads/GEPBase/user.drankin.tgp_base_jz0_sep22_EXT0/outputGEPNtuple.root
-- /Users/dsrankin/Downloads/GEPBase/user.drankin.tgp_base_jz1_sep22_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPBase/user.drankin.tgp_base_jz0_sep25_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPBase/user.drankin.tgp_base_jz1_sep25_EXT0/outputGEPNtuple.root
 background_weights:
 - 76.66268004
 - 3.656677112
