@@ -8,10 +8,14 @@ for TYPE in "$@"; do
 
   # GEPBase note: the old encoding-parameter-scan sig3/sig4 config variants
   # are gone (no equivalent collections exist any more). Also note "sk" is
-  # no longer a valid --collection-sets value for any GEPBase config -- the
-  # plain (non-EtaSK) "SK" collection variant does not exist in this
-  # production, so requesting it alone raises an error. Use "etask",
-  # "other", or "all" instead.
+  # not a useful --collection-sets value for jet/jet_tthad/tau/ele/pho/met
+  # (the plain, non-EtaSK "SK" collection variant does not exist in this
+  # production, so requesting it alone raises an error there) -- use
+  # "etask", "other", or "all" instead. jet_larger_example is the one
+  # exception: AntiKt10UFOCSSKJets' name happens to end in "...CSSK", which
+  # contains "SK" as a substring, so it gets misclassified into the "sk"
+  # bucket even though it has no EtaSK counterpart. Run jet_larger_example
+  # with "all" (not just "etask"/"other") or its results go missing.
 
   [ "$OBJECT" = "jet" ] || [ "$OBJECT" = "all" ] && {
     gep-perf run configs/jet_example.yaml --plotdir perf_plots --resdir perf_results --collection-sets "$TYPE"

@@ -67,8 +67,8 @@ if [[ "$OBJTYPE" == "all" ]] || [[ "$OBJTYPE" == "pujet" ]]; then
     PLOT_SUBDIR="pujet"
     plot_cmd perf_results/Jet_{AntiKt4CaloTopoClusters422AlgJets,AntiKt4CaloTopoClusters422EtaSKAlgJets,AntiKt4GEPCellsTowerAlgJets,AntiKt4GEPCellsTowerEtaSKAlgJets,AntiKt4EMPFlowJets,L1_jFexSRJetRoISim,L1_gFexSRJetRoISim}_n1_pt100.npz --name pujet --plotlabel _pt100 --plottext "J100 [VBF HH->4b]" --nobj 1 --xmax 200. --noerr --dofulleff --dorespresol
     plot_cmd perf_results/Jet_{AntiKt4CaloTopoClusters422AlgJets,AntiKt4CaloTopoClusters422EtaSKAlgJets,AntiKt4GEPCellsTowerAlgJets,AntiKt4GEPCellsTowerEtaSKAlgJets,AntiKt4EMPFlowJets,L1_jFexSRJetRoISim,L1_gFexSRJetRoISim}_n2_pt60.npz --name pujet --plotlabel _pt60 --plottext "2J60 [VBF HH->4b]" --nobj 2 --xmax 100. --noerr --dofulleff
-    plot_cmd perf_results/Jet_{AntiKt4CaloTopoClusters422AlgJets,AntiKt4CaloTopoClusters422EtaSKAlgJets,AntiKt4GEPCellsTowerAlgJets,AntiKt4GEPCellsTowerEtaSKAlgJets,AntiKt4EMPFlowJets,L1_jFexSRJetRoISim,L1_gFexSRJetRoISim}_n3_pt50.npz --name pujet --plotlabel _pt50 --plottext "3J50 [VBF HH->4b]" --nobj 1 --xmax 100. --noerr --dofulleff
-    plot_cmd perf_results/Jet_{AntiKt4CaloTopoClusters422AlgJets,AntiKt4CaloTopoClusters422EtaSKAlgJets,AntiKt4GEPCellsTowerAlgJets,AntiKt4GEPCellsTowerEtaSKAlgJets,AntiKt4EMPFlowJets,L1_jFexSRJetRoISim,L1_gFexSRJetRoISim}_n4_pt40.npz --name pujet --plotlabel _pt40 --plottext "4J40 [VBF HH->4b]" --nobj 2 --xmax 100. --noerr --dofulleff
+    plot_cmd perf_results/Jet_{AntiKt4CaloTopoClusters422AlgJets,AntiKt4CaloTopoClusters422EtaSKAlgJets,AntiKt4GEPCellsTowerAlgJets,AntiKt4GEPCellsTowerEtaSKAlgJets,AntiKt4EMPFlowJets,L1_jFexSRJetRoISim,L1_gFexSRJetRoISim}_n3_pt50.npz --name pujet --plotlabel _pt50 --plottext "3J50 [VBF HH->4b]" --nobj 3 --xmax 100. --noerr --dofulleff
+    plot_cmd perf_results/Jet_{AntiKt4CaloTopoClusters422AlgJets,AntiKt4CaloTopoClusters422EtaSKAlgJets,AntiKt4GEPCellsTowerAlgJets,AntiKt4GEPCellsTowerEtaSKAlgJets,AntiKt4EMPFlowJets,L1_jFexSRJetRoISim,L1_gFexSRJetRoISim}_n4_pt40.npz --name pujet --plotlabel _pt40 --plottext "4J40 [VBF HH->4b]" --nobj 4 --xmax 100. --noerr --dofulleff
     plot_cmd perf_results/Jet_{AntiKt4CaloTopoClusters422AlgJets,AntiKt4CaloTopoClusters422EtaSKAlgJets,AntiKt4GEPCellsTowerAlgJets,AntiKt4GEPCellsTowerEtaSKAlgJets,AntiKt4EMPFlowJets,L1_jFexSRJetRoISim,L1_gFexSRJetRoISim}_n1_rate50.npz --name pujet --plotlabel _rate50 --plottext "50 kHz [VBF HH->4b]" --nobj 1 --xmax 200. --noerr
     plot_cmd perf_results/Jet_{AntiKt4CaloTopoClusters422AlgJets,AntiKt4CaloTopoClusters422EtaSKAlgJets,AntiKt4GEPCellsTowerAlgJets,AntiKt4GEPCellsTowerEtaSKAlgJets,AntiKt4EMPFlowJets,L1_jFexSRJetRoISim,L1_gFexSRJetRoISim}_n2_rate50.npz --name pujet --plotlabel _rate50 --plottext "50 kHz [VBF HH->4b]" --nobj 2 --xmax 200. --noerr
     plot_cmd perf_results/Jet_{AntiKt4CaloTopoClusters422AlgJets,AntiKt4CaloTopoClusters422EtaSKAlgJets,AntiKt4GEPCellsTowerAlgJets,AntiKt4GEPCellsTowerEtaSKAlgJets,AntiKt4EMPFlowJets,L1_jFexSRJetRoISim,L1_gFexSRJetRoISim}_n3_rate75.npz --name pujet --plotlabel _rate75 --plottext "75 kHz [VBF HH->4b]" --nobj 3 --xmax 200. --noerr
@@ -159,6 +159,113 @@ if [[ "$OBJTYPE" == "all" ]] || [[ "$OBJTYPE" == "etaskjet" ]]; then
     plot_cmd perf_results/Jet_dijet_mass_{AntiKt4CaloTopoClusters422EtaSKAlgJets,AntiKt4GEPCellsTowerEtaSKAlgJets}_n2_boosted_rate50.npz --name boosted_etaskjet --plotlabel _mjj_boosted_rate50 --plottext "50 kHz (Boosted) [VBF HH->4b]" --nobj 0 --noerr --xmax -1
     plot_cmd perf_results/Jet_dijet_mass_{AntiKt4CaloTopoClusters422EtaSKAlgJets,AntiKt4GEPCellsTowerEtaSKAlgJets}_n3_boosted_rate75.npz --name boosted_etaskjet --plotlabel _mjj_boosted_rate75 --plottext "75 kHz (Boosted) [VBF HH->4b]" --nobj 0 --noerr --xmax -1
     plot_cmd perf_results/Jet_dijet_mass_{AntiKt4CaloTopoClusters422EtaSKAlgJets,AntiKt4GEPCellsTowerEtaSKAlgJets}_n4_boosted_rate100.npz --name boosted_etaskjet --plotlabel _mjj_boosted_rate100 --plottext "100 kHz (Boosted) [VBF HH->4b]" --nobj 0 --noerr --xmax -1
+fi
+
+
+## Large-R "fat" jets (AK10 nominal + LRJTagger + offline UFO CS+SK + gFEX LRJ RoI)
+## from jet_larger_example.yaml. Boosted-topology complement of the small-R
+## "jet" section above (1-2 large-R jets each containing a boosted Higgs,
+## vs 1-4 small-R jets in the resolved case) -- same signal/selectors/
+## turn-on variables as jet_example, just nobj=[1,2] and higher thresholds.
+## Note: AntiKt10UFOCSSKJets' name ends in "...CSSK", which contains "SK"
+## as a substring, so --collection-sets classifies it as the plain "sk"
+## bucket (not "other") even though it has no EtaSK counterpart -- request
+## --collection-sets all (not just etask/other) when running jet_larger_example
+## or its results will be silently missing from these plots.
+if [[ "$OBJTYPE" == "all" ]] || [[ "$OBJTYPE" == "fatjet" ]]; then
+    echo "Fat Jets"
+    PLOT_SUBDIR="fatjet"
+    plot_cmd perf_results/Jet_{AntiKt10CaloTopoClusters422AlgJets,AntiKt10GEPCellsTowerAlgJets,JetTaggerLRJGEPCellsTowerJets,AntiKt10UFOCSSKJets,L1_gFexLRJetRoISim}_n1_pt100.npz --name fatjet --plotlabel _pt100 --plottext "FJ100 [VBF HH->4b]" --nobj 1 --xmax 350. --noerr --dofulleff --dorespresol
+    plot_cmd perf_results/Jet_{AntiKt10CaloTopoClusters422AlgJets,AntiKt10GEPCellsTowerAlgJets,JetTaggerLRJGEPCellsTowerJets,AntiKt10UFOCSSKJets,L1_gFexLRJetRoISim}_n1_pt150.npz --name fatjet --plotlabel _pt150 --plottext "FJ150 [VBF HH->4b]" --nobj 1 --xmax 350. --noerr --dofulleff
+    plot_cmd perf_results/Jet_{AntiKt10CaloTopoClusters422AlgJets,AntiKt10GEPCellsTowerAlgJets,JetTaggerLRJGEPCellsTowerJets,AntiKt10UFOCSSKJets,L1_gFexLRJetRoISim}_n2_pt50.npz --name fatjet --plotlabel _pt50 --plottext "2FJ50 [VBF HH->4b]" --nobj 2 --xmax 200. --noerr --dofulleff
+    plot_cmd perf_results/Jet_{AntiKt10CaloTopoClusters422AlgJets,AntiKt10GEPCellsTowerAlgJets,JetTaggerLRJGEPCellsTowerJets,AntiKt10UFOCSSKJets,L1_gFexLRJetRoISim}_n2_pt60.npz --name fatjet --plotlabel _pt60 --plottext "2FJ60 [VBF HH->4b]" --nobj 2 --xmax 200. --noerr --dofulleff
+    plot_cmd perf_results/Jet_{AntiKt10CaloTopoClusters422AlgJets,AntiKt10GEPCellsTowerAlgJets,JetTaggerLRJGEPCellsTowerJets,AntiKt10UFOCSSKJets,L1_gFexLRJetRoISim}_n1_rate50.npz --name fatjet --plotlabel _rate50 --plottext "50 kHz [VBF HH->4b]" --nobj 1 --xmax 350. --noerr
+    plot_cmd perf_results/Jet_{AntiKt10CaloTopoClusters422AlgJets,AntiKt10GEPCellsTowerAlgJets,JetTaggerLRJGEPCellsTowerJets,AntiKt10UFOCSSKJets,L1_gFexLRJetRoISim}_n2_rate50.npz --name fatjet --plotlabel _rate50 --plottext "50 kHz [VBF HH->4b]" --nobj 2 --xmax 200. --noerr
+
+    echo "Boosted Fat Jets"
+    PLOT_SUBDIR="boosted_fatjet"
+    plot_cmd perf_results/Jet_{AntiKt10CaloTopoClusters422AlgJets,AntiKt10GEPCellsTowerAlgJets,JetTaggerLRJGEPCellsTowerJets,AntiKt10UFOCSSKJets,L1_gFexLRJetRoISim}_n1_boosted_pt100.npz --name boosted_fatjet --plotlabel _boosted_pt100 --plottext "FJ100 (Boosted) [VBF HH->4b]" --nobj 1 --xmax 350. --noerr --dofulleff
+    plot_cmd perf_results/Jet_{AntiKt10CaloTopoClusters422AlgJets,AntiKt10GEPCellsTowerAlgJets,JetTaggerLRJGEPCellsTowerJets,AntiKt10UFOCSSKJets,L1_gFexLRJetRoISim}_n1_boosted_pt150.npz --name boosted_fatjet --plotlabel _boosted_pt150 --plottext "FJ150 (Boosted) [VBF HH->4b]" --nobj 1 --xmax 350. --noerr --dofulleff
+    plot_cmd perf_results/Jet_{AntiKt10CaloTopoClusters422AlgJets,AntiKt10GEPCellsTowerAlgJets,JetTaggerLRJGEPCellsTowerJets,AntiKt10UFOCSSKJets,L1_gFexLRJetRoISim}_n2_boosted_pt50.npz --name boosted_fatjet --plotlabel _boosted_pt50 --plottext "2FJ50 (Boosted) [VBF HH->4b]" --nobj 2 --xmax 200. --noerr --dofulleff
+    plot_cmd perf_results/Jet_{AntiKt10CaloTopoClusters422AlgJets,AntiKt10GEPCellsTowerAlgJets,JetTaggerLRJGEPCellsTowerJets,AntiKt10UFOCSSKJets,L1_gFexLRJetRoISim}_n2_boosted_pt60.npz --name boosted_fatjet --plotlabel _boosted_pt60 --plottext "2FJ60 (Boosted) [VBF HH->4b]" --nobj 2 --xmax 200. --noerr --dofulleff
+    plot_cmd perf_results/Jet_{AntiKt10CaloTopoClusters422AlgJets,AntiKt10GEPCellsTowerAlgJets,JetTaggerLRJGEPCellsTowerJets,AntiKt10UFOCSSKJets,L1_gFexLRJetRoISim}_n1_boosted_rate50.npz --name boosted_fatjet --plotlabel _boosted_rate50 --plottext "50 kHz (Boosted) [VBF HH->4b]" --nobj 1 --xmax 350. --noerr
+    plot_cmd perf_results/Jet_{AntiKt10CaloTopoClusters422AlgJets,AntiKt10GEPCellsTowerAlgJets,JetTaggerLRJGEPCellsTowerJets,AntiKt10UFOCSSKJets,L1_gFexLRJetRoISim}_n2_boosted_rate50.npz --name boosted_fatjet --plotlabel _boosted_rate50 --plottext "50 kHz (Boosted) [VBF HH->4b]" --nobj 2 --xmax 200. --noerr
+fi
+
+## Pileup-suppression fat-jet comparison (nominal vs EtaSK; UFO CS+SK and the
+## gFEX LRJ RoI have no separate pileup-suppressed variant, shown as references)
+if [[ "$OBJTYPE" == "all" ]] || [[ "$OBJTYPE" == "pufatjet" ]]; then
+    echo "Pileup-suppression Fat Jets"
+    PLOT_SUBDIR="pufatjet"
+    plot_cmd perf_results/Jet_{AntiKt10CaloTopoClusters422AlgJets,AntiKt10CaloTopoClusters422EtaSKAlgJets,AntiKt10GEPCellsTowerAlgJets,AntiKt10GEPCellsTowerEtaSKAlgJets,JetTaggerLRJGEPCellsTowerJets,JetTaggerLRJGEPCellsTowerEtaSKJets,AntiKt10UFOCSSKJets,L1_gFexLRJetRoISim}_n1_pt100.npz --name pufatjet --plotlabel _pt100 --plottext "FJ100 [VBF HH->4b]" --nobj 1 --xmax 350. --noerr --dofulleff --dorespresol
+    plot_cmd perf_results/Jet_{AntiKt10CaloTopoClusters422AlgJets,AntiKt10CaloTopoClusters422EtaSKAlgJets,AntiKt10GEPCellsTowerAlgJets,AntiKt10GEPCellsTowerEtaSKAlgJets,JetTaggerLRJGEPCellsTowerJets,JetTaggerLRJGEPCellsTowerEtaSKJets,AntiKt10UFOCSSKJets,L1_gFexLRJetRoISim}_n1_pt150.npz --name pufatjet --plotlabel _pt150 --plottext "FJ150 [VBF HH->4b]" --nobj 1 --xmax 350. --noerr --dofulleff
+    plot_cmd perf_results/Jet_{AntiKt10CaloTopoClusters422AlgJets,AntiKt10CaloTopoClusters422EtaSKAlgJets,AntiKt10GEPCellsTowerAlgJets,AntiKt10GEPCellsTowerEtaSKAlgJets,JetTaggerLRJGEPCellsTowerJets,JetTaggerLRJGEPCellsTowerEtaSKJets,AntiKt10UFOCSSKJets,L1_gFexLRJetRoISim}_n2_pt50.npz --name pufatjet --plotlabel _pt50 --plottext "2FJ50 [VBF HH->4b]" --nobj 2 --xmax 200. --noerr --dofulleff
+    plot_cmd perf_results/Jet_{AntiKt10CaloTopoClusters422AlgJets,AntiKt10CaloTopoClusters422EtaSKAlgJets,AntiKt10GEPCellsTowerAlgJets,AntiKt10GEPCellsTowerEtaSKAlgJets,JetTaggerLRJGEPCellsTowerJets,JetTaggerLRJGEPCellsTowerEtaSKJets,AntiKt10UFOCSSKJets,L1_gFexLRJetRoISim}_n2_pt60.npz --name pufatjet --plotlabel _pt60 --plottext "2FJ60 [VBF HH->4b]" --nobj 2 --xmax 200. --noerr --dofulleff
+    plot_cmd perf_results/Jet_{AntiKt10CaloTopoClusters422AlgJets,AntiKt10CaloTopoClusters422EtaSKAlgJets,AntiKt10GEPCellsTowerAlgJets,AntiKt10GEPCellsTowerEtaSKAlgJets,JetTaggerLRJGEPCellsTowerJets,JetTaggerLRJGEPCellsTowerEtaSKJets,AntiKt10UFOCSSKJets,L1_gFexLRJetRoISim}_n1_rate50.npz --name pufatjet --plotlabel _rate50 --plottext "50 kHz [VBF HH->4b]" --nobj 1 --xmax 350. --noerr
+    plot_cmd perf_results/Jet_{AntiKt10CaloTopoClusters422AlgJets,AntiKt10CaloTopoClusters422EtaSKAlgJets,AntiKt10GEPCellsTowerAlgJets,AntiKt10GEPCellsTowerEtaSKAlgJets,JetTaggerLRJGEPCellsTowerJets,JetTaggerLRJGEPCellsTowerEtaSKJets,AntiKt10UFOCSSKJets,L1_gFexLRJetRoISim}_n2_rate50.npz --name pufatjet --plotlabel _rate50 --plottext "50 kHz [VBF HH->4b]" --nobj 2 --xmax 200. --noerr
+fi
+
+## EtaSK-only fat jets
+if [[ "$OBJTYPE" == "all" ]] || [[ "$OBJTYPE" == "etaskfatjet" ]]; then
+    echo "EtaSK Fat Jets"
+    PLOT_SUBDIR="etaskfatjet"
+    plot_cmd perf_results/Jet_{AntiKt10CaloTopoClusters422EtaSKAlgJets,AntiKt10GEPCellsTowerEtaSKAlgJets,JetTaggerLRJGEPCellsTowerEtaSKJets}_n1_pt100.npz --name etaskfatjet --plotlabel _pt100 --plottext "FJ100 [VBF HH->4b]" --nobj 1 --xmax 350. --noerr --dofulleff --dorespresol
+    plot_cmd perf_results/Jet_{AntiKt10CaloTopoClusters422EtaSKAlgJets,AntiKt10GEPCellsTowerEtaSKAlgJets,JetTaggerLRJGEPCellsTowerEtaSKJets}_n1_pt150.npz --name etaskfatjet --plotlabel _pt150 --plottext "FJ150 [VBF HH->4b]" --nobj 1 --xmax 350. --noerr --dofulleff
+    plot_cmd perf_results/Jet_{AntiKt10CaloTopoClusters422EtaSKAlgJets,AntiKt10GEPCellsTowerEtaSKAlgJets,JetTaggerLRJGEPCellsTowerEtaSKJets}_n2_pt50.npz --name etaskfatjet --plotlabel _pt50 --plottext "2FJ50 [VBF HH->4b]" --nobj 2 --xmax 200. --noerr --dofulleff
+    plot_cmd perf_results/Jet_{AntiKt10CaloTopoClusters422EtaSKAlgJets,AntiKt10GEPCellsTowerEtaSKAlgJets,JetTaggerLRJGEPCellsTowerEtaSKJets}_n2_pt60.npz --name etaskfatjet --plotlabel _pt60 --plottext "2FJ60 [VBF HH->4b]" --nobj 2 --xmax 200. --noerr --dofulleff
+    plot_cmd perf_results/Jet_{AntiKt10CaloTopoClusters422EtaSKAlgJets,AntiKt10GEPCellsTowerEtaSKAlgJets,JetTaggerLRJGEPCellsTowerEtaSKJets}_n1_rate50.npz --name etaskfatjet --plotlabel _rate50 --plottext "50 kHz [VBF HH->4b]" --nobj 1 --xmax 350. --noerr
+    plot_cmd perf_results/Jet_{AntiKt10CaloTopoClusters422EtaSKAlgJets,AntiKt10GEPCellsTowerEtaSKAlgJets,JetTaggerLRJGEPCellsTowerEtaSKJets}_n2_rate50.npz --name etaskfatjet --plotlabel _rate50 --plottext "50 kHz [VBF HH->4b]" --nobj 2 --xmax 200. --noerr
+
+    echo "Boosted EtaSK Fat Jets"
+    PLOT_SUBDIR="boosted_etaskfatjet"
+    plot_cmd perf_results/Jet_{AntiKt10CaloTopoClusters422EtaSKAlgJets,AntiKt10GEPCellsTowerEtaSKAlgJets,JetTaggerLRJGEPCellsTowerEtaSKJets}_n1_boosted_pt100.npz --name boosted_etaskfatjet --plotlabel _boosted_pt100 --plottext "FJ100 (Boosted) [VBF HH->4b]" --nobj 1 --xmax 350. --noerr --dofulleff
+    plot_cmd perf_results/Jet_{AntiKt10CaloTopoClusters422EtaSKAlgJets,AntiKt10GEPCellsTowerEtaSKAlgJets,JetTaggerLRJGEPCellsTowerEtaSKJets}_n1_boosted_pt150.npz --name boosted_etaskfatjet --plotlabel _boosted_pt150 --plottext "FJ150 (Boosted) [VBF HH->4b]" --nobj 1 --xmax 350. --noerr --dofulleff
+    plot_cmd perf_results/Jet_{AntiKt10CaloTopoClusters422EtaSKAlgJets,AntiKt10GEPCellsTowerEtaSKAlgJets,JetTaggerLRJGEPCellsTowerEtaSKJets}_n2_boosted_pt50.npz --name boosted_etaskfatjet --plotlabel _boosted_pt50 --plottext "2FJ50 (Boosted) [VBF HH->4b]" --nobj 2 --xmax 200. --noerr --dofulleff
+    plot_cmd perf_results/Jet_{AntiKt10CaloTopoClusters422EtaSKAlgJets,AntiKt10GEPCellsTowerEtaSKAlgJets,JetTaggerLRJGEPCellsTowerEtaSKJets}_n2_boosted_pt60.npz --name boosted_etaskfatjet --plotlabel _boosted_pt60 --plottext "2FJ60 (Boosted) [VBF HH->4b]" --nobj 2 --xmax 200. --noerr --dofulleff
+    plot_cmd perf_results/Jet_{AntiKt10CaloTopoClusters422EtaSKAlgJets,AntiKt10GEPCellsTowerEtaSKAlgJets,JetTaggerLRJGEPCellsTowerEtaSKJets}_n1_boosted_rate50.npz --name boosted_etaskfatjet --plotlabel _boosted_rate50 --plottext "50 kHz (Boosted) [VBF HH->4b]" --nobj 1 --xmax 350. --noerr
+    plot_cmd perf_results/Jet_{AntiKt10CaloTopoClusters422EtaSKAlgJets,AntiKt10GEPCellsTowerEtaSKAlgJets,JetTaggerLRJGEPCellsTowerEtaSKJets}_n2_boosted_rate50.npz --name boosted_etaskfatjet --plotlabel _boosted_rate50 --plottext "50 kHz (Boosted) [VBF HH->4b]" --nobj 2 --xmax 200. --noerr
+fi
+
+## Fat jets (VBF, m_jj turn-on)
+if [[ "$OBJTYPE" == "all" ]] || [[ "$OBJTYPE" == "fatjet" ]]; then
+    echo "VBF Fat Jets"
+    PLOT_SUBDIR="vbf_fatjet"
+    plot_cmd perf_results/Jet_dijet_mass_{AntiKt10CaloTopoClusters422AlgJets,AntiKt10GEPCellsTowerAlgJets,JetTaggerLRJGEPCellsTowerJets,AntiKt10UFOCSSKJets,L1_gFexLRJetRoISim}_n1_pt100.npz --name fatjet --plotlabel _mjj_pt100 --plottext "FJ100 [VBF HH->4b]" --nobj 0 --noerr --xmax -1
+    plot_cmd perf_results/Jet_dijet_mass_{AntiKt10CaloTopoClusters422AlgJets,AntiKt10GEPCellsTowerAlgJets,JetTaggerLRJGEPCellsTowerJets,AntiKt10UFOCSSKJets,L1_gFexLRJetRoISim}_n1_pt150.npz --name fatjet --plotlabel _mjj_pt150 --plottext "FJ150 [VBF HH->4b]" --nobj 0 --noerr --xmax -1
+    plot_cmd perf_results/Jet_dijet_mass_{AntiKt10CaloTopoClusters422AlgJets,AntiKt10GEPCellsTowerAlgJets,JetTaggerLRJGEPCellsTowerJets,AntiKt10UFOCSSKJets,L1_gFexLRJetRoISim}_n2_pt50.npz --name fatjet --plotlabel _mjj_pt50 --plottext "2FJ50 [VBF HH->4b]" --nobj 0 --noerr --xmax -1
+    plot_cmd perf_results/Jet_dijet_mass_{AntiKt10CaloTopoClusters422AlgJets,AntiKt10GEPCellsTowerAlgJets,JetTaggerLRJGEPCellsTowerJets,AntiKt10UFOCSSKJets,L1_gFexLRJetRoISim}_n2_pt60.npz --name fatjet --plotlabel _mjj_pt60 --plottext "2FJ60 [VBF HH->4b]" --nobj 0 --noerr --xmax -1
+    plot_cmd perf_results/Jet_dijet_mass_{AntiKt10CaloTopoClusters422AlgJets,AntiKt10GEPCellsTowerAlgJets,JetTaggerLRJGEPCellsTowerJets,AntiKt10UFOCSSKJets,L1_gFexLRJetRoISim}_n1_rate50.npz --name fatjet --plotlabel _mjj_rate50 --plottext "50 kHz [VBF HH->4b]" --nobj 0 --noerr --xmax -1
+    plot_cmd perf_results/Jet_dijet_mass_{AntiKt10CaloTopoClusters422AlgJets,AntiKt10GEPCellsTowerAlgJets,JetTaggerLRJGEPCellsTowerJets,AntiKt10UFOCSSKJets,L1_gFexLRJetRoISim}_n2_rate50.npz --name fatjet --plotlabel _mjj_rate50 --plottext "50 kHz [VBF HH->4b]" --nobj 0 --noerr --xmax -1
+
+    echo "VBF Boosted Fat Jets"
+    PLOT_SUBDIR="vbf_boosted_fatjet"
+    plot_cmd perf_results/Jet_dijet_mass_{AntiKt10CaloTopoClusters422AlgJets,AntiKt10GEPCellsTowerAlgJets,JetTaggerLRJGEPCellsTowerJets,AntiKt10UFOCSSKJets,L1_gFexLRJetRoISim}_n1_boosted_pt100.npz --name boosted_fatjet --plotlabel _mjj_boosted_pt100 --plottext "FJ100 (Boosted) [VBF HH->4b]" --nobj 0 --noerr --xmax -1
+    plot_cmd perf_results/Jet_dijet_mass_{AntiKt10CaloTopoClusters422AlgJets,AntiKt10GEPCellsTowerAlgJets,JetTaggerLRJGEPCellsTowerJets,AntiKt10UFOCSSKJets,L1_gFexLRJetRoISim}_n1_boosted_pt150.npz --name boosted_fatjet --plotlabel _mjj_boosted_pt150 --plottext "FJ150 (Boosted) [VBF HH->4b]" --nobj 0 --noerr --xmax -1
+    plot_cmd perf_results/Jet_dijet_mass_{AntiKt10CaloTopoClusters422AlgJets,AntiKt10GEPCellsTowerAlgJets,JetTaggerLRJGEPCellsTowerJets,AntiKt10UFOCSSKJets,L1_gFexLRJetRoISim}_n2_boosted_pt50.npz --name boosted_fatjet --plotlabel _mjj_boosted_pt50 --plottext "2FJ50 (Boosted) [VBF HH->4b]" --nobj 0 --noerr --xmax -1
+    plot_cmd perf_results/Jet_dijet_mass_{AntiKt10CaloTopoClusters422AlgJets,AntiKt10GEPCellsTowerAlgJets,JetTaggerLRJGEPCellsTowerJets,AntiKt10UFOCSSKJets,L1_gFexLRJetRoISim}_n2_boosted_pt60.npz --name boosted_fatjet --plotlabel _mjj_boosted_pt60 --plottext "2FJ60 (Boosted) [VBF HH->4b]" --nobj 0 --noerr --xmax -1
+    plot_cmd perf_results/Jet_dijet_mass_{AntiKt10CaloTopoClusters422AlgJets,AntiKt10GEPCellsTowerAlgJets,JetTaggerLRJGEPCellsTowerJets,AntiKt10UFOCSSKJets,L1_gFexLRJetRoISim}_n1_boosted_rate50.npz --name boosted_fatjet --plotlabel _mjj_boosted_rate50 --plottext "50 kHz (Boosted) [VBF HH->4b]" --nobj 0 --noerr --xmax -1
+    plot_cmd perf_results/Jet_dijet_mass_{AntiKt10CaloTopoClusters422AlgJets,AntiKt10GEPCellsTowerAlgJets,JetTaggerLRJGEPCellsTowerJets,AntiKt10UFOCSSKJets,L1_gFexLRJetRoISim}_n2_boosted_rate50.npz --name boosted_fatjet --plotlabel _mjj_boosted_rate50 --plottext "50 kHz (Boosted) [VBF HH->4b]" --nobj 0 --noerr --xmax -1
+fi
+
+## EtaSK-only fat jets (VBF, m_jj turn-on)
+if [[ "$OBJTYPE" == "all" ]] || [[ "$OBJTYPE" == "etaskfatjet" ]]; then
+    echo "VBF EtaSK Fat Jets"
+    PLOT_SUBDIR="vbf_etaskfatjet"
+    plot_cmd perf_results/Jet_dijet_mass_{AntiKt10CaloTopoClusters422EtaSKAlgJets,AntiKt10GEPCellsTowerEtaSKAlgJets,JetTaggerLRJGEPCellsTowerEtaSKJets}_n1_pt100.npz --name etaskfatjet --plotlabel _mjj_pt100 --plottext "FJ100 [VBF HH->4b]" --nobj 0 --noerr --xmax -1
+    plot_cmd perf_results/Jet_dijet_mass_{AntiKt10CaloTopoClusters422EtaSKAlgJets,AntiKt10GEPCellsTowerEtaSKAlgJets,JetTaggerLRJGEPCellsTowerEtaSKJets}_n1_pt150.npz --name etaskfatjet --plotlabel _mjj_pt150 --plottext "FJ150 [VBF HH->4b]" --nobj 0 --noerr --xmax -1
+    plot_cmd perf_results/Jet_dijet_mass_{AntiKt10CaloTopoClusters422EtaSKAlgJets,AntiKt10GEPCellsTowerEtaSKAlgJets,JetTaggerLRJGEPCellsTowerEtaSKJets}_n2_pt50.npz --name etaskfatjet --plotlabel _mjj_pt50 --plottext "2FJ50 [VBF HH->4b]" --nobj 0 --noerr --xmax -1
+    plot_cmd perf_results/Jet_dijet_mass_{AntiKt10CaloTopoClusters422EtaSKAlgJets,AntiKt10GEPCellsTowerEtaSKAlgJets,JetTaggerLRJGEPCellsTowerEtaSKJets}_n2_pt60.npz --name etaskfatjet --plotlabel _mjj_pt60 --plottext "2FJ60 [VBF HH->4b]" --nobj 0 --noerr --xmax -1
+    plot_cmd perf_results/Jet_dijet_mass_{AntiKt10CaloTopoClusters422EtaSKAlgJets,AntiKt10GEPCellsTowerEtaSKAlgJets,JetTaggerLRJGEPCellsTowerEtaSKJets}_n1_rate50.npz --name etaskfatjet --plotlabel _mjj_rate50 --plottext "50 kHz [VBF HH->4b]" --nobj 0 --noerr --xmax -1
+    plot_cmd perf_results/Jet_dijet_mass_{AntiKt10CaloTopoClusters422EtaSKAlgJets,AntiKt10GEPCellsTowerEtaSKAlgJets,JetTaggerLRJGEPCellsTowerEtaSKJets}_n2_rate50.npz --name etaskfatjet --plotlabel _mjj_rate50 --plottext "50 kHz [VBF HH->4b]" --nobj 0 --noerr --xmax -1
+
+    echo "VBF Boosted EtaSK Fat Jets"
+    PLOT_SUBDIR="vbf_boosted_etaskfatjet"
+    plot_cmd perf_results/Jet_dijet_mass_{AntiKt10CaloTopoClusters422EtaSKAlgJets,AntiKt10GEPCellsTowerEtaSKAlgJets,JetTaggerLRJGEPCellsTowerEtaSKJets}_n1_boosted_pt100.npz --name boosted_etaskfatjet --plotlabel _mjj_boosted_pt100 --plottext "FJ100 (Boosted) [VBF HH->4b]" --nobj 0 --noerr --xmax -1
+    plot_cmd perf_results/Jet_dijet_mass_{AntiKt10CaloTopoClusters422EtaSKAlgJets,AntiKt10GEPCellsTowerEtaSKAlgJets,JetTaggerLRJGEPCellsTowerEtaSKJets}_n1_boosted_pt150.npz --name boosted_etaskfatjet --plotlabel _mjj_boosted_pt150 --plottext "FJ150 (Boosted) [VBF HH->4b]" --nobj 0 --noerr --xmax -1
+    plot_cmd perf_results/Jet_dijet_mass_{AntiKt10CaloTopoClusters422EtaSKAlgJets,AntiKt10GEPCellsTowerEtaSKAlgJets,JetTaggerLRJGEPCellsTowerEtaSKJets}_n2_boosted_pt50.npz --name boosted_etaskfatjet --plotlabel _mjj_boosted_pt50 --plottext "2FJ50 (Boosted) [VBF HH->4b]" --nobj 0 --noerr --xmax -1
+    plot_cmd perf_results/Jet_dijet_mass_{AntiKt10CaloTopoClusters422EtaSKAlgJets,AntiKt10GEPCellsTowerEtaSKAlgJets,JetTaggerLRJGEPCellsTowerEtaSKJets}_n2_boosted_pt60.npz --name boosted_etaskfatjet --plotlabel _mjj_boosted_pt60 --plottext "2FJ60 (Boosted) [VBF HH->4b]" --nobj 0 --noerr --xmax -1
+    plot_cmd perf_results/Jet_dijet_mass_{AntiKt10CaloTopoClusters422EtaSKAlgJets,AntiKt10GEPCellsTowerEtaSKAlgJets,JetTaggerLRJGEPCellsTowerEtaSKJets}_n1_boosted_rate50.npz --name boosted_etaskfatjet --plotlabel _mjj_boosted_rate50 --plottext "50 kHz (Boosted) [VBF HH->4b]" --nobj 0 --noerr --xmax -1
+    plot_cmd perf_results/Jet_dijet_mass_{AntiKt10CaloTopoClusters422EtaSKAlgJets,AntiKt10GEPCellsTowerEtaSKAlgJets,JetTaggerLRJGEPCellsTowerEtaSKJets}_n2_boosted_rate50.npz --name boosted_etaskfatjet --plotlabel _mjj_boosted_rate50 --plottext "50 kHz (Boosted) [VBF HH->4b]" --nobj 0 --noerr --xmax -1
 fi
 
 
