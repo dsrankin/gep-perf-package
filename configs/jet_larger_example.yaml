@@ -1,0 +1,171 @@
+name: Jet
+signal_files:
+- /eos/home-d/drankin/GEPBase/user.drankin.tgp_base_hhbbbb_sep25_EXT0/outputGEPNtuple.root
+background_files:
+- /eos/home-d/drankin/GEPBase/user.drankin.tgp_base_jz0_sep25_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPBase/user.drankin.tgp_base_jz1_sep25_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPBase/user.drankin.tgp_base_jz2_sep25_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPBase/user.drankin.tgp_base_jz3_sep25_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPBase/user.drankin.tgp_base_jz4_sep25_EXT0/outputGEPNtuple.root
+- /eos/home-d/drankin/GEPBase/user.drankin.tgp_base_jz5_sep25_EXT0/outputGEPNtuple.root
+background_weights:
+- 76.66268004
+- 3.656677112
+- 0.0
+- 0.0
+- 0.0
+- 0.0
+reco_prefixes:
+- AntiKt10GEPCellsTowerAlgJets
+- AntiKt10GEPCellsTowerEtaSKAlgJets
+- JetTaggerLRJGEPCellsTowerJets
+- JetTaggerLRJGEPCellsTowerEtaSKJets
+- AntiKt10CaloTopoClusters422AlgJets
+- AntiKt10CaloTopoClusters422EtaSKAlgJets
+- AntiKt10UFOCSSKJets
+- L1_gFexLRJetRoISim
+reco_labels:
+- AK10 GEP CellTower
+- AK10 GEP CellTower, EtaSK
+- LRJTagger GEP CellTower
+- LRJTagger GEP CellTower, EtaSK
+- AK10 422 Topocluster
+- AK10 422 Topocluster, EtaSK
+- AK10 UFO CSSK (offline)
+- gFEX Large-R Jet
+truth_prefix: AntiKt10TruthJets
+truth_suffix: ''
+match_dict:
+  pt_reco_names:
+  - pt
+  - pt
+  - pt
+  - pt
+  - pt
+  - pt
+  - pt
+  - et
+reco_pt_min: 5.0
+truth_pt_min: 20.0
+pt_min: 5.0
+reco_iso_dr: 1.0
+truth_iso_dr: 1.2
+nobjs:
+- 1
+- 2
+selectors:
+- name: null_selector
+  label: ''
+- name: boosted_truth_selector
+  label: _boosted
+  kwargs:
+    dr_threshold: 0.7
+- name: hh_mass_window_selector
+  label: _hhmass
+turnon_variables:
+- name: truth_pt
+  label: Truth $p_T$ [GeV]
+  bins: truth_pt_bins
+- name: dijet_mass
+  label: Truth $m_{jj}$ [GeV]
+  bins:
+    start: 0
+    stop: 1000
+    step: 25
+truth_pt_bins:
+- 20.0
+- 22.0
+- 24.0
+- 26.0
+- 28.0
+- 30.0
+- 32.0
+- 34.0
+- 36.0
+- 38.0
+- 40.0
+- 42.0
+- 44.0
+- 46.0
+- 48.0
+- 50.0
+- 52.0
+- 54.0
+- 56.0
+- 58.0
+- 60.0
+- 62.0
+- 64.0
+- 66.0
+- 68.0
+- 70.0
+- 72.0
+- 74.0
+- 76.0
+- 78.0
+- 80.0
+- 82.0
+- 84.0
+- 86.0
+- 88.0
+- 90.0
+- 92.0
+- 94.0
+- 96.0
+- 98.0
+- 100.0
+- 105.0
+- 110.0
+- 115.0
+- 120.0
+- 125.0
+- 130.0
+- 135.0
+- 140.0
+- 145.0
+- 150.0
+- 155.0
+- 160.0
+- 165.0
+- 170.0
+- 175.0
+- 180.0
+- 185.0
+- 190.0
+- 195.0
+- 200.0
+- 210.0
+- 220.0
+- 230.0
+- 240.0
+- 250.0
+- 275.0
+- 300.0
+- 325.0
+- 350.0
+truth_eta_bins:
+- -4.9
+- -3.2
+- -2.5
+- -1.5
+- -1.375
+- -1.0
+- 0.0
+- 1.0
+- 1.375
+- 1.5
+- 2.5
+- 3.2
+- 4.9
+do_rho_sub: false
+rates:
+- 50.0
+- 50.0
+triggers:
+- - 100.0
+  - 150.0
+- - 50.0
+  - 60.0
+extra_vars: []
+tree: ntuple
+dr_max: 0.2
