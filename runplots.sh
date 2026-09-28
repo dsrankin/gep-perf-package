@@ -1,20 +1,11 @@
 #!/bin/bash
+#
+# GEPBase note: there is no more GEP encoding-parameter scan to loop over
+# (the old script called make_plots.sh once per E6LSB50/LSB50G2/SIG2/SIG3/SIG4
+# variant), so this is now a thin wrapper that just runs make_plots.sh once
+# per requested object type and tars up the results.
 
 for TYPE in "$@"; do
   echo $TYPE
-  if [[ "$TYPE" == *"pu"* ]]; then
-    ./make_plots.sh $TYPE "E6LSB50G4SIG2" _e6lsb50g4sig2 false
-    ./make_plots.sh $TYPE "E6LSB50G4SIG3" _e6lsb50g4sig3 false
-    ./make_plots.sh $TYPE "E6LSB50G4SIG4" _e6lsb50g4sig4 false
-    ./make_plots.sh $TYPE "E6LSB50G6SIG2" _e6lsb50g6sig2 false
-    ./make_plots.sh $TYPE "E6LSB50G6SIG3" _e6lsb50g6sig3 false
-    ./make_plots.sh $TYPE "E6LSB50G6SIG4" _e6lsb50g6sig4 false
-  else
-    ./make_plots.sh $TYPE E6LSB50 _n6lsb50 false
-    ./make_plots.sh $TYPE LSB50G2 _lsb50g2 false
-    ./make_plots.sh $TYPE SIG2 _2sig false
-    ./make_plots.sh $TYPE SIG3 _3sig false
-    ./make_plots.sh $TYPE SIG4 _4sig false
-  fi
-  ./make_plots.sh _ _ _ true
+  ./make_plots.sh $TYPE true
 done

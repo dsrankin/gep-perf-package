@@ -1,13 +1,13 @@
 name: Jet
 signal_files:
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_hhbbbb_apr20_EXT0/outputGEPNtuple.root
+- /Users/dsrankin/Downloads/GEPBase/user.drankin.tgp_base_hhbbbb_sep22_EXT0/outputGEPNtuple.root
 background_files:
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz0_apr20_EXT0/outputGEPNtuple.root
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz1_apr20_EXT0/outputGEPNtuple.root
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz2_apr20_EXT0/outputGEPNtuple.root
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz3_apr20_EXT0/outputGEPNtuple.root
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz4_apr20_EXT0/outputGEPNtuple.root
-- /eos/home-d/drankin/GEPEnc/user.drankin.tgp_enc_jz5_apr20_EXT0/outputGEPNtuple.root
+- /Users/dsrankin/Downloads/GEPBase/user.drankin.tgp_base_jz0_sep22_EXT0/outputGEPNtuple.root
+- /Users/dsrankin/Downloads/GEPBase/user.drankin.tgp_base_jz1_sep22_EXT0/outputGEPNtuple.root
+- /Users/dsrankin/Downloads/GEPBase/user.drankin.tgp_base_jz2_sep22_EXT0/outputGEPNtuple.root
+- /Users/dsrankin/Downloads/GEPBase/user.drankin.tgp_base_jz3_sep22_EXT0/outputGEPNtuple.root
+- /Users/dsrankin/Downloads/GEPBase/user.drankin.tgp_base_jz4_sep22_EXT0/outputGEPNtuple.root
+- /Users/dsrankin/Downloads/GEPBase/user.drankin.tgp_base_jz5_sep22_EXT0/outputGEPNtuple.root
 background_weights:
 - 76.66268004
 - 3.656677112
@@ -16,57 +16,21 @@ background_weights:
 - 0.0
 - 0.0
 reco_prefixes:
-- AntiKt4GepCellsE6LSB50G4SIG2TowerJets
-- AntiKt4GepCellsE6LSB50G4SIG2TowerSKJets
-- AntiKt4GepCellsE6LSB50G4SIG2TowerEtaSKJets
-- AntiKt4GepCellsE6LSB50G6SIG2TowerJets
-- AntiKt4GepCellsE6LSB50G6SIG2TowerSKJets
-- AntiKt4GepCellsE6LSB50G6SIG2TowerEtaSKJets
-- AntiKt4GepCellsE6LSB100G2SIG2TowerJets
-- AntiKt4GepCellsE6LSB100G2SIG2TowerSKJets
-- AntiKt4GepCellsE6LSB100G2SIG2TowerEtaSKJets
-- AntiKt4GepCellsE8LSB50G2SIG2TowerJets
-- AntiKt4GepCellsE8LSB50G2SIG2TowerSKJets
-- AntiKt4GepCellsE8LSB50G2SIG2TowerEtaSKJets
-- AntiKt4GepCellsE8LSB100G2SIG2TowerJets
-- AntiKt4GepCellsE8LSB100G2SIG2TowerSKJets
-- AntiKt4GepCellsE8LSB100G2SIG2TowerEtaSKJets
-- AntiKt4GepCellsE10LSB50G2SIG2TowerJets
-- AntiKt4GepCellsE10LSB50G2SIG2TowerSKJets
-- AntiKt4GepCellsE10LSB50G2SIG2TowerEtaSKJets
-- L1_jFexSRJetRoI
-- AntiKt4OfflineCellsTowerJets
-- AntiKt4OfflineCellsTowerSKJets
-- AntiKt4OfflineCellsTowerEtaSKJets
-- AntiKt4CaloTopoClusters422Jets
-- AntiKt4CaloTopoClusters422SKJets
-- AntiKt4CaloTopoClusters422EtaSKJets
+- AntiKt4GEPCellsTowerAlgJets
+- AntiKt4GEPCellsTowerEtaSKAlgJets
+- AntiKt4CaloTopoClusters422AlgJets
+- AntiKt4CaloTopoClusters422EtaSKAlgJets
+- AntiKt4EMPFlowJets
+- L1_jFexSRJetRoISim
+- L1_gFexSRJetRoISim
 reco_labels:
-- "AK4 GEP CellTower (6-50-4, 2 sigma)"
-- "AK4 GEP CellTower, SK (6-50-4, 2 sigma)"
-- "AK4 GEP CellTower, EtaSK (6-50-4, 2 sigma)"
-- "AK4 GEP CellTower (6-50-6, 2 sigma)"
-- "AK4 GEP CellTower, SK (6-50-6, 2 sigma)"
-- "AK4 GEP CellTower, EtaSK (6-50-6, 2 sigma)"
-- "AK4 GEP CellTower (6-100-2, 2 sigma)"
-- "AK4 GEP CellTower, SK (6-100-2, 2 sigma)"
-- "AK4 GEP CellTower, EtaSK (6-100-2, 2 sigma)"
-- "AK4 GEP CellTower (8-50-2, 2 sigma)"
-- "AK4 GEP CellTower, SK (8-50-2, 2 sigma)"
-- "AK4 GEP CellTower, EtaSK (8-50-2, 2 sigma)"
-- "AK4 GEP CellTower (8-100-2, 2 sigma)"
-- "AK4 GEP CellTower, SK (8-100-2, 2 sigma)"
-- "AK4 GEP CellTower, EtaSK (8-100-2, 2 sigma)"
-- "AK4 GEP CellTower (10-50-2, 2 sigma)"
-- "AK4 GEP CellTower, SK (10-50-2, 2 sigma)"
-- "AK4 GEP CellTower, EtaSK (10-50-2, 2 sigma)"
-- "jFEX Jet"
-- "AK4 Offline CellTower"
-- "AK4 Offline CellTower, SK"
-- "AK4 Offline CellTower, EtaSK"
-- "AK4 422 Topocluster"
-- "AK4 422 Topocluster, SK"
-- "AK4 422 Topocluster, EtaSK"
+- AK4 GEP CellTower
+- AK4 GEP CellTower, EtaSK
+- AK4 422 Topocluster
+- AK4 422 Topocluster, EtaSK
+- AK4 EMPFlow (offline)
+- jFEX Jet
+- gFEX Jet
 truth_prefix: AntiKt4TruthJets
 truth_suffix: ''
 match_dict:
@@ -76,26 +40,8 @@ match_dict:
   - pt
   - pt
   - pt
-  - pt
-  - pt
-  - pt
-  - pt
-  - pt
-  - pt
-  - pt
-  - pt
-  - pt
-  - pt
-  - pt
-  - pt
-  - pt
   - et
-  - pt
-  - pt
-  - pt
-  - pt
-  - pt
-  - pt
+  - et
 reco_pt_min: 5.0
 truth_pt_min: 20.0
 pt_min: 5.0
@@ -117,11 +63,14 @@ selectors:
   label: _hhmass
 turnon_variables:
 - name: truth_pt
-  label: "Truth $p_T$ [GeV]"
+  label: Truth $p_T$ [GeV]
   bins: truth_pt_bins
 - name: dijet_mass
-  label: "Truth $m_{jj}$ [GeV]"
-  bins: {start: 0, stop: 1000, step: 25}
+  label: Truth $m_{jj}$ [GeV]
+  bins:
+    start: 0
+    stop: 1000
+    step: 25
 truth_pt_bins:
 - 20.0
 - 22.0
