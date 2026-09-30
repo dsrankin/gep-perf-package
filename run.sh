@@ -18,9 +18,11 @@ for TYPE in "$@"; do
   # with "all" (not just "etask"/"other") or its results go missing.
 
   [ "$OBJECT" = "jet" ] || [ "$OBJECT" = "all" ] && {
-    gep-perf run configs/jet_example.yaml --plotdir perf_plots --resdir perf_results --collection-sets "$TYPE"
     gep-perf run configs/jet_larger_example.yaml --plotdir perf_plots --resdir perf_results --collection-sets "$TYPE"
-    gep-perf run configs/jet_tthad_example.yaml --plotdir perf_plots --resdir perf_results --collection-sets "$TYPE"
+  }
+
+  [ "$OBJECT" = "fatjet" ] || [ "$OBJECT" = "all" ] && {
+    gep-perf run configs/jet_larger_example.yaml --plotdir perf_plots --resdir perf_results --collection-sets "$TYPE"
   }
 
   [ "$OBJECT" = "tau" ] || [ "$OBJECT" = "all" ] && {

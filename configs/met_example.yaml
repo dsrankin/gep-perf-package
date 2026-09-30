@@ -71,7 +71,7 @@ truth_eta_bins:
 - 0.5
 do_rho_sub: false
 rates:
-- 60.0
+- 80.0
 triggers:
 - - 150.0
   - 200.0
