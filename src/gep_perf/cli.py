@@ -26,7 +26,8 @@ def run_from_yaml(config_path: str | Path, plotdir: str | None = None, resdir: s
     # Save one file per (reco, nobj, selection) result
     for r in results:
         suffix = "rate"+str(int(r.rate))  if r.fixrate else "pt"+str(int(r.threshold))
-        out = Path(core.resdir) / f"{r.name}{r.turnon_var}_{r.reco}_n{r.nobj}{r.sel_label}{r.rate_sel_label}_{suffix}.npz"
+        correction_suffix = "_uncorrected" if r.correction_mode == "uncorrected" else ""
+        out = Path(core.resdir) / f"{r.name}{r.turnon_var}_{r.reco}_n{r.nobj}{r.sel_label}{r.rate_sel_label}_{suffix}{correction_suffix}.npz"
         core.save_run_result(r, str(out))
 
     return results

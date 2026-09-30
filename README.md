@@ -63,6 +63,9 @@ rate_selector:
 truth_pt_bins: [20, 22, 24, ...]
 truth_eta_bins: [-4.9, -3.2, ...]
 do_rho_sub: true
+# Produce both calibrated and raw-pt/energy performance in the same run.
+# The default is [corrected] for compatibility with existing configurations.
+correction_modes: [corrected, uncorrected]
 rates: [50, 50, 75, 100]
 triggers: [[60,100],[50,60],[50,90],[40,50]]
 
@@ -83,6 +86,16 @@ spline_lambdas:
   AntiKt4GEPCellsTowerAlgJets: 2.0e-5
   L1_jFexSRJetRoISim: 5.0e-6
 ```
+
+### Corrected and uncorrected results
+
+Set `correction_modes` to any ordered combination of `corrected` and
+`uncorrected`. Corrections are fitted or loaded once per reconstruction
+collection, while the efficiency, threshold, and rate calculations are run
+independently against corrected and original object pt/energy. Corrected files
+retain the existing filename; uncorrected files add `_uncorrected` before the
+`.npz` extension, so both sets can be produced without overwriting each other.
+The correction mode is also stored in each result file as `correction_mode`.
 
 ### Supported selector names
 
