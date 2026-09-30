@@ -115,6 +115,7 @@ class RunConfig:
     turnon_fns: list[Callable[[ak.Array, int], ak.Array]]
     turnon_var_labels: list[str]
     turnon_bins: list[np.ndarray]
+    correction_modes: list[str] = field(default_factory=lambda: ["corrected"])
     spline_lambdas: dict[str, float] = field(default_factory=dict)
     reco_sources: dict[str, str] = field(default_factory=dict)
     extra_var_branches: dict[str, dict[str, str]] = field(default_factory=dict)
@@ -147,6 +148,17 @@ class RunConfig:
             raise ValueError(f"Number of turn-on variables ({len(self.turnon_vars)}) and labels ({len(self.turnon_var_labels)}) must be the same length")
         if len(self.turnon_vars)!=len(self.turnon_bins):
             raise ValueError(f"Number of turn-on variables ({len(self.turnon_vars)}) and bins ({len(self.turnon_bins)}) must be the same length")
+        allowed_correction_modes = {"corrected", "uncorrected"}
+        unknown_correction_modes = set(self.correction_modes) - allowed_correction_modes
+        if unknown_correction_modes:
+            raise ValueError(
+                "Unknown correction mode(s) "
+                f"{sorted(unknown_correction_modes)}. Allowed values: {sorted(allowed_correction_modes)}"
+            )
+        if not self.correction_modes:
+            raise ValueError("correction_modes must contain at least one mode")
+        # Preserve the requested order, while avoiding duplicate result production.
+        self.correction_modes = list(dict.fromkeys(self.correction_modes))
 
 @dataclass
 class RunResult:
@@ -174,10 +186,14 @@ class RunResult:
     turnon_var: str
     turnon_label: str
     turnon_bins: np.ndarray
+    correction_mode: str = "corrected"
 
 
 def result_reco_label(result: RunResult) -> str:
-    return getattr(result, "reco_label", result.reco)
+    label = getattr(result, "reco_label", result.reco)
+    if getattr(result, "correction_mode", "corrected") == "uncorrected":
+        return f"{label} (uncorrected)"
+    return label
 
 def delta_phi(phi1,phi2):
     dphi = phi1-phi2
@@ -1820,8 +1836,12 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
         _debug_multiplicity_plots(config, sig_pairs, bkg_pairs, prefix, "_nocorr")
 
     for reco_prefix, reco_label in zip(config.reco_prefixes, config.reco_labels):
-        sp = sig_pairs[reco_prefix]
-        bp = bkg_pairs[reco_prefix]
+        sp_uncorrected = sig_pairs[reco_prefix]
+        bp_uncorrected = bkg_pairs[reco_prefix]
+        # Correctors replace the reco_pt field in place. Copies keep the raw
+        # collection available so both modes can be evaluated in one run.
+        sp = ak.copy(sp_uncorrected)
+        bp = ak.copy(bp_uncorrected)
 
         # ---- response and corrections (computed once per collection, before any nobj loop) ----
         response_uncorr, resol_uncorr, _ = compute_response(
@@ -1909,143 +1929,151 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
         del rhosub
         gc.collect()
 
-        # ---- per-collection caches on the corrected pairs ----
-        sig_w = np.asarray(ak.to_numpy(sp["weight"]), dtype=np.float64)
-        bkg_w = np.asarray(ak.to_numpy(bp["weight"]), dtype=np.float64)
-        sig_reco_order = kth_sort_order(sp, "reco_pt")
-        bkg_reco_order = kth_sort_order(bp, "reco_pt")
+        pair_variants = {
+            "corrected": (sp, bp),
+            "uncorrected": (sp_uncorrected, bp_uncorrected),
+        }
+        for correction_mode in config.correction_modes:
+            sp, bp = pair_variants[correction_mode]
 
-        for n, nobj in enumerate(config.nobjs):
-            # nobj-th leading reco pt and event selections, computed once per (collection, nobj)
-            sig_reco_k = kth_from_order(sp, "reco_pt", sig_reco_order, nobj)
-            bkg_reco_k = kth_from_order(bp, "reco_pt", bkg_reco_order, nobj)
-            sig_sel_masks = [_resolve_selector(sel, sp, nobj) for sel in config.sels]
-            bkg_sel_masks = [_resolve_selector(sel, bp, nobj) for sel in config.sels]
-            sig_rate_masks = [_resolve_selector(sel, sp, nobj) for sel in config.rate_sels]
-            bkg_rate_masks = [_resolve_selector(sel, bp, nobj) for sel in config.rate_sels]
-            turnon_cache = {}
-            full_eff_cache = {}
+            # ---- per-collection caches for this correction mode ----
+            sig_w = np.asarray(ak.to_numpy(sp["weight"]), dtype=np.float64)
+            bkg_w = np.asarray(ak.to_numpy(bp["weight"]), dtype=np.float64)
+            sig_reco_order = kth_sort_order(sp, "reco_pt")
+            bkg_reco_order = kth_sort_order(bp, "reco_pt")
 
-            def event_selections(s, dijet_threshold):
-                """Denominator selections for selector s (plus the truth multiplicity cut for m_jj turn-ons)."""
-                sig_mask = sig_sel_masks[s]
-                bkg_mask = bkg_sel_masks[s]
-                if dijet_threshold is not None:
-                    sig_mask = sig_mask & truth_multiplicity_selector(sp, nobj, pt_min=dijet_threshold)
-                    bkg_mask = bkg_mask & truth_multiplicity_selector(bp, nobj, pt_min=dijet_threshold)
-                return sig_mask, bkg_mask
+            for n, nobj in enumerate(config.nobjs):
+                # nobj-th leading reco pt and event selections, computed once per (collection, nobj)
+                sig_reco_k = kth_from_order(sp, "reco_pt", sig_reco_order, nobj)
+                bkg_reco_k = kth_from_order(bp, "reco_pt", bkg_reco_order, nobj)
+                sig_sel_masks = [_resolve_selector(sel, sp, nobj) for sel in config.sels]
+                bkg_sel_masks = [_resolve_selector(sel, bp, nobj) for sel in config.sels]
+                sig_rate_masks = [_resolve_selector(sel, sp, nobj) for sel in config.rate_sels]
+                bkg_rate_masks = [_resolve_selector(sel, bp, nobj) for sel in config.rate_sels]
+                turnon_cache = {}
+                full_eff_cache = {}
 
-            def full_efficiencies(r, s, dijet_threshold):
-                """Full efficiency scans; they only depend on (rate selector, selector, m_jj threshold)."""
-                key = (r, s, dijet_threshold)
-                if key not in full_eff_cache:
-                    sig_mask, bkg_mask = event_selections(s, dijet_threshold)
-                    full_eff_cache[key] = (
-                        compute_full_efficiency(
-                            sp, config.truth_pt_bins, nobj, sig_mask,
-                            numerator_selector=sig_rate_masks[r], weights=False,
-                            reco_pt_kth=sig_reco_k, event_weights=sig_w,
-                        ),
-                        compute_full_efficiency(
-                            bp, config.truth_pt_bins, nobj, bkg_mask,
-                            numerator_selector=bkg_rate_masks[r], weights=True,
-                            reco_pt_kth=bkg_reco_k, event_weights=bkg_w,
-                        ),
-                    )
-                return full_eff_cache[key]
+                def event_selections(s, dijet_threshold):
+                    """Denominator selections for selector s (plus the truth multiplicity cut for m_jj turn-ons)."""
+                    sig_mask = sig_sel_masks[s]
+                    bkg_mask = bkg_sel_masks[s]
+                    if dijet_threshold is not None:
+                        sig_mask = sig_mask & truth_multiplicity_selector(sp, nobj, pt_min=dijet_threshold)
+                        bkg_mask = bkg_mask & truth_multiplicity_selector(bp, nobj, pt_min=dijet_threshold)
+                    return sig_mask, bkg_mask
 
-            for r in range(len(config.rate_sels)):
-                # Compute threshold for fixed background efficiency
-                rate_eff = config.rates[n]/31_000.
-                threshold,actual_eff = compute_pt_threshold(
-                    bp,
-                    rate_eff,
-                    nobj,
-                    selector=bkg_rate_masks[r],
-                    reco_pt_kth=bkg_reco_k,
-                    event_weights=bkg_w,
-                ) #in kHz
-                print(f"For {reco_prefix}, n={nobj}, target rate efficiency of {rate_eff:.6f}, threshold of {threshold:.6f} gives actual rate efficiency of {actual_eff:.6f}")
+                def full_efficiencies(r, s, dijet_threshold):
+                    """Full efficiency scans; they only depend on (rate selector, selector, m_jj threshold)."""
+                    key = (r, s, dijet_threshold)
+                    if key not in full_eff_cache:
+                        sig_mask, bkg_mask = event_selections(s, dijet_threshold)
+                        full_eff_cache[key] = (
+                            compute_full_efficiency(
+                                sp, config.truth_pt_bins, nobj, sig_mask,
+                                numerator_selector=sig_rate_masks[r], weights=False,
+                                reco_pt_kth=sig_reco_k, event_weights=sig_w,
+                            ),
+                            compute_full_efficiency(
+                                bp, config.truth_pt_bins, nobj, bkg_mask,
+                                numerator_selector=bkg_rate_masks[r], weights=True,
+                                reco_pt_kth=bkg_reco_k, event_weights=bkg_w,
+                            ),
+                        )
+                    return full_eff_cache[key]
 
-                # fixed-rate threshold first, then the fixed trigger thresholds
-                thresholds = [(True, threshold, config.rates[n])]
-                for trig_threshold in config.triggers[n]:
-                    rate, actual_eff = compute_rate(
+                for r in range(len(config.rate_sels)):
+                    # Compute threshold for fixed background efficiency
+                    rate_eff = config.rates[n]/31_000.
+                    threshold,actual_eff = compute_pt_threshold(
                         bp,
-                        trig_threshold,
+                        rate_eff,
                         nobj,
                         selector=bkg_rate_masks[r],
                         reco_pt_kth=bkg_reco_k,
                         event_weights=bkg_w,
-                    )
-                    print(f"For {reco_prefix}, n={nobj}, trigger threshold of {trig_threshold:.1f} gives actual rate efficiency of {actual_eff:.6f} (rate {rate:.6f} kHz)")
-                    thresholds.append((False, trig_threshold, rate))
+                    ) #in kHz
+                    print(f"For {reco_prefix}, n={nobj}, target rate efficiency of {rate_eff:.6f}, threshold of {threshold:.6f} gives actual rate efficiency of {actual_eff:.6f}")
 
-                for fixrate, thr, rate in thresholds:
-                    for t_idx, (turnon_var, turnon_fn, turnon_label, turnon_bins) in enumerate(zip(
-                        config.turnon_vars,
-                        config.turnon_fns,
-                        config.turnon_var_labels,
-                        config.turnon_bins,
-                    )):
-                        is_dijet = turnon_var == "_dijet_mass"
-                        if is_dijet:
-                            turnon_values = dijet_mass_turnon_var(sp, nobj, pt_min=thr)
-                        else:
-                            if t_idx not in turnon_cache:
-                                turnon_cache[t_idx] = turnon_fn(sp, nobj)
-                            turnon_values = turnon_cache[t_idx]
-                        dijet_threshold = thr if is_dijet else None
+                    # fixed-rate threshold first, then the fixed trigger thresholds
+                    thresholds = [(True, threshold, config.rates[n])]
+                    for trig_threshold in config.triggers[n]:
+                        rate, actual_eff = compute_rate(
+                            bp,
+                            trig_threshold,
+                            nobj,
+                            selector=bkg_rate_masks[r],
+                            reco_pt_kth=bkg_reco_k,
+                            event_weights=bkg_w,
+                        )
+                        print(f"For {reco_prefix}, n={nobj}, trigger threshold of {trig_threshold:.1f} gives actual rate efficiency of {actual_eff:.6f} (rate {rate:.6f} kHz)")
+                        thresholds.append((False, trig_threshold, rate))
 
-                        for s in range(len(config.sels)):
-                            sig_mask, _ = event_selections(s, dijet_threshold)
+                    for fixrate, thr, rate in thresholds:
+                        for t_idx, (turnon_var, turnon_fn, turnon_label, turnon_bins) in enumerate(zip(
+                            config.turnon_vars,
+                            config.turnon_fns,
+                            config.turnon_var_labels,
+                            config.turnon_bins,
+                        )):
+                            is_dijet = turnon_var == "_dijet_mass"
+                            if is_dijet:
+                                turnon_values = dijet_mass_turnon_var(sp, nobj, pt_min=thr)
+                            else:
+                                if t_idx not in turnon_cache:
+                                    turnon_cache[t_idx] = turnon_fn(sp, nobj)
+                                turnon_values = turnon_cache[t_idx]
+                            dijet_threshold = thr if is_dijet else None
 
-                            # Signal efficiency vs turn-on variable
-                            centers, eff, _,_, err = compute_signal_efficiency(
-                                sp,
-                                thr,
-                                turnon_bins,
-                                nobj,
-                                sig_mask,
-                                numerator_selector=sig_rate_masks[r],
-                                turnon_values=turnon_values,
-                                reco_pt_kth=sig_reco_k,
-                                event_weights=sig_w,
-                            )
+                            for s in range(len(config.sels)):
+                                sig_mask, _ = event_selections(s, dijet_threshold)
 
-                            (full_sig_eff, full_sig_err), (full_bkg_eff, full_bkg_err) = full_efficiencies(r, s, dijet_threshold)
-
-                            results.append(
-                                RunResult(
-                                    name=config.name,
-                                    sel_label=config.sel_labels[s],
-                                    rate_sel_label=config.rate_sel_labels[r],
-                                    reco=reco_prefix,
-                                    reco_label=reco_label,
-                                    nobj=nobj,
-                                    fixrate=fixrate,
-                                    threshold=thr,
-                                    rate=rate,
-                                    truth_pt_bins=config.truth_pt_bins,
-                                    truth_eta_bins=config.truth_eta_bins,
-                                    signal_efficiency=eff,
-                                    signal_efficiency_error=err,
-                                    full_sig_efficiency=full_sig_eff,
-                                    full_sig_efficiency_error=full_sig_err,
-                                    full_bkg_efficiency=full_bkg_eff,
-                                    full_bkg_efficiency_error=full_bkg_err,
-                                    response_uncorr=response_uncorr,
-                                    response_corr=response_corr,
-                                    resol_uncorr=resol_uncorr,
-                                    resol_corr=resol_corr,
-                                    turnon_var=turnon_var,
-                                    turnon_label=turnon_label,
-                                    turnon_bins=turnon_bins,
+                                # Signal efficiency vs turn-on variable
+                                centers, eff, _,_, err = compute_signal_efficiency(
+                                    sp,
+                                    thr,
+                                    turnon_bins,
+                                    nobj,
+                                    sig_mask,
+                                    numerator_selector=sig_rate_masks[r],
+                                    turnon_values=turnon_values,
+                                    reco_pt_kth=sig_reco_k,
+                                    event_weights=sig_w,
                                 )
-                            )
 
-        del sig_reco_order, bkg_reco_order
-        gc.collect()
+                                (full_sig_eff, full_sig_err), (full_bkg_eff, full_bkg_err) = full_efficiencies(r, s, dijet_threshold)
+
+                                results.append(
+                                    RunResult(
+                                        name=config.name,
+                                        sel_label=config.sel_labels[s],
+                                        rate_sel_label=config.rate_sel_labels[r],
+                                        reco=reco_prefix,
+                                        reco_label=reco_label,
+                                        nobj=nobj,
+                                        fixrate=fixrate,
+                                        threshold=thr,
+                                        rate=rate,
+                                        truth_pt_bins=config.truth_pt_bins,
+                                        truth_eta_bins=config.truth_eta_bins,
+                                        signal_efficiency=eff,
+                                        signal_efficiency_error=err,
+                                        full_sig_efficiency=full_sig_eff,
+                                        full_sig_efficiency_error=full_sig_err,
+                                        full_bkg_efficiency=full_bkg_eff,
+                                        full_bkg_efficiency_error=full_bkg_err,
+                                        response_uncorr=response_uncorr,
+                                        response_corr=response_corr,
+                                        resol_uncorr=resol_uncorr,
+                                        resol_corr=resol_corr,
+                                        turnon_var=turnon_var,
+                                        turnon_label=turnon_label,
+                                        turnon_bins=turnon_bins,
+                                        correction_mode=correction_mode,
+                                    )
+                                )
+
+            del sig_reco_order, bkg_reco_order
+            gc.collect()
 
     if debug:
         for nobj in config.nobjs:
@@ -2081,6 +2109,7 @@ def save_run_result(result: RunResult, path):
         turnon_var=result.turnon_var,
         turnon_label=result.turnon_label,
         turnon_bins=result.turnon_bins,
+        correction_mode=result.correction_mode,
     )
 
 def load_run_result(path):
@@ -2088,6 +2117,7 @@ def load_run_result(path):
     turnon_var = data["turnon_var"].item() if "turnon_var" in data else "truth_pt"
     turnon_label = data["turnon_label"].item() if "turnon_label" in data else "Truth p_{T}"
     turnon_bins = data["turnon_bins"] if "turnon_bins" in data else data["truth_pt_bins"]
+    correction_mode = data["correction_mode"].item() if "correction_mode" in data else "corrected"
     return RunResult(
         name=data["name"].item(),
         reco=data["reco"].item(),
@@ -2113,6 +2143,7 @@ def load_run_result(path):
         turnon_var=turnon_var,
         turnon_label=turnon_label,
         turnon_bins=turnon_bins,
+        correction_mode=correction_mode,
     )
 
 import scipy.optimize as opt
