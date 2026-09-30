@@ -17,13 +17,18 @@ for TYPE in "$@"; do
   # bucket even though it has no EtaSK counterpart. Run jet_larger_example
   # with "all" (not just "etask"/"other") or its results go missing.
 
-  [ "$OBJECT" = "jet" ] || [ "$OBJECT" = "all" ] && {
-    gep-perf run configs/jet_larger_example.yaml --plotdir perf_plots --resdir perf_results --collection-sets "$TYPE"
-  }
+  # The plotting script's jet overlays consume both the VBF HH and ttbar AK4
+  # results.  Produce both configurations here; previously this branch ran
+  # only the AK10 configuration, leaving all AK4 (including uncorrected)
+  # inputs absent at plotting time.
+  if [ "$OBJECT" = "jet" ] || [ "$OBJECT" = "all" ]; then
+    gep-perf run configs/jet_example.yaml --plotdir perf_plots --resdir perf_results --collection-sets "$TYPE"
+    gep-perf run configs/jet_tthad_example.yaml --plotdir perf_plots --resdir perf_results --collection-sets "$TYPE"
+  fi
 
-  [ "$OBJECT" = "fatjet" ] || [ "$OBJECT" = "all" ] && {
+  if [ "$OBJECT" = "fatjet" ] || [ "$OBJECT" = "all" ]; then
     gep-perf run configs/jet_larger_example.yaml --plotdir perf_plots --resdir perf_results --collection-sets "$TYPE"
-  }
+  fi
 
   [ "$OBJECT" = "tau" ] || [ "$OBJECT" = "all" ] && {
     gep-perf run configs/tau_example.yaml --plotdir perf_plots --resdir perf_results --collection-sets "$TYPE"
