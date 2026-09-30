@@ -70,6 +70,9 @@ truth_eta_bins:
 - -0.5
 - 0.5
 do_rho_sub: false
+correction_modes:
+- corrected
+- uncorrected
 rates:
 - 80.0
 triggers:

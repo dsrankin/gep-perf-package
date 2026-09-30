@@ -25,6 +25,14 @@ Outputs:
 - `.npz` result files in `--resdir`
 - plots in `--plotdir`
 
+The checked-in example configurations produce both correction modes. After
+running them, `./make_plots.sh <object-type>` reads both result-file variants
+and writes the comparison plots beneath `perf_plots/corrected/` and
+`perf_plots/uncorrected/`. `./runplots.sh <object-type> [...]` provides the
+same behavior and also creates the plot archives. Response and resolution
+plots are mode-independent and are therefore produced only in the corrected
+plot tree.
+
 ## YAML configuration
 
 Top-level keys correspond to the original `RunConfig` dataclass fields, except selections, which are expressed as `selectors`. You can also specify a single `rate_selector` that is used for background rejection/rate and for the signal-efficiency numerator only (not the denominator).

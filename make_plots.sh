@@ -14,10 +14,34 @@ MAKETAR=$2
 
 PLOTDIR_BASE=perf_plots
 PLOT_SUBDIR=""
+CORRECTION_MODES=(corrected uncorrected)
 
 plot_cmd() {
-    mkdir -p "${PLOTDIR_BASE}/${PLOT_SUBDIR}"
-    gep-perf plot "$@" --plotdir "${PLOTDIR_BASE}/${PLOT_SUBDIR}"
+    local base_args=("$@")
+    local mode arg
+
+    # A run writes corrected results with the historical filename and raw
+    # results with an "_uncorrected" suffix.  Make each requested overlay for
+    # both result sets and keep their otherwise-identical plot names in
+    # separate directories. Response/resolution data are independent of the
+    # selected correction mode, so only make those plots in the corrected
+    # pass.
+    for mode in "${CORRECTION_MODES[@]}"; do
+        local mode_args=()
+        for arg in "${base_args[@]}"; do
+            if [[ "$mode" == "uncorrected" && "$arg" == *.npz ]]; then
+                mode_args+=("${arg%.npz}_uncorrected.npz")
+            elif [[ "$mode" == "uncorrected" && "$arg" == "--dorespresol" ]]; then
+                continue
+            else
+                mode_args+=("$arg")
+            fi
+        done
+
+        local mode_plotdir="${PLOTDIR_BASE}/${mode}/${PLOT_SUBDIR}"
+        mkdir -p "$mode_plotdir"
+        gep-perf plot "${mode_args[@]}" --plotdir "$mode_plotdir"
+    done
 }
 
 echo $OBJTYPE

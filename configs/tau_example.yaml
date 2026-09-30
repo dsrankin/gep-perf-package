@@ -151,6 +151,9 @@ truth_eta_bins:
 - 3.2
 - 4.9
 do_rho_sub: false
+correction_modes:
+- corrected
+- uncorrected
 rates:
 - 10.0
 - 200.0
