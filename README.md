@@ -29,7 +29,9 @@ The checked-in example configurations produce both correction modes. After
 running them, `./make_plots.sh <object-type>` reads both result-file variants
 and writes the comparison plots beneath `perf_plots/corrected/` and
 `perf_plots/uncorrected/`. `./runplots.sh <object-type> [...]` provides the
-same behavior and also creates the plot archives.
+same behavior and also creates the plot archives. Response and resolution
+plots are mode-independent and are therefore produced only in the corrected
+plot tree.
 
 ## YAML configuration
 
