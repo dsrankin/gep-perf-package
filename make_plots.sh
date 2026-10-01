@@ -393,7 +393,7 @@ if [[ "$OBJTYPE" == "all" ]] || [[ "$OBJTYPE" == "pumet" ]]; then
     PLOT_SUBDIR="pumet"
     plot_cmd perf_results/MET_{gFex_JwoJ,gFex_RhoRMS,gFex_NC,jFex,GepMETCaloTopoClusters422,GepMETCaloTopoClusters422EtaSK,GepMETGEPCellsTower,GepMETGEPCellsTowerEtaSK}_n1_pt150.npz --name pumet --plotlabel _pt150 --plottext "MET150 [ZH->vvbb]" --nobj 1 --xmax 500. --noerr --dofulleff --dorespresol
     plot_cmd perf_results/MET_{gFex_JwoJ,gFex_RhoRMS,gFex_NC,jFex,GepMETCaloTopoClusters422,GepMETCaloTopoClusters422EtaSK,GepMETGEPCellsTower,GepMETGEPCellsTowerEtaSK}_n1_pt200.npz --name pumet --plotlabel _pt200 --plottext "MET200 [ZH->vvbb]" --nobj 1 --xmax 500. --noerr --dofulleff
-    plot_cmd perf_results/MET_{gFex_JwoJ,gFex_RhoRMS,gFex_NC,jFex,GepMETCaloTopoClusters422,GepMETCaloTopoClusters422EtaSK,GepMETGEPCellsTower,GepMETGEPCellsTowerEtaSK}_n1_rate60.npz --name pumet --plotlabel _rate60 --plottext "60 kHz [ZH->vvbb]" --nobj 1 --xmax 500. --noerr
+    plot_cmd perf_results/MET_{gFex_JwoJ,gFex_RhoRMS,gFex_NC,jFex,GepMETCaloTopoClusters422,GepMETCaloTopoClusters422EtaSK,GepMETGEPCellsTower,GepMETGEPCellsTowerEtaSK}_n1_rate80.npz --name pumet --plotlabel _rate80 --plottext "80 kHz [ZH->vvbb]" --nobj 1 --xmax 500. --noerr
 fi
 
 ## MET
@@ -402,7 +402,7 @@ if [[ "$OBJTYPE" == "all" ]] || [[ "$OBJTYPE" == "met" ]]; then
     PLOT_SUBDIR="met"
     plot_cmd perf_results/MET_{gFex_JwoJ,gFex_RhoRMS,gFex_NC,jFex,GepMETCaloTopoClusters422,GepMETGEPCellsTower}_n1_pt150.npz --name met --plotlabel _pt150 --plottext "MET150 [ZH->vvbb]" --nobj 1 --xmax 500. --noerr --dofulleff --dorespresol
     plot_cmd perf_results/MET_{gFex_JwoJ,gFex_RhoRMS,gFex_NC,jFex,GepMETCaloTopoClusters422,GepMETGEPCellsTower}_n1_pt200.npz --name met --plotlabel _pt200 --plottext "MET200 [ZH->vvbb]" --nobj 1 --xmax 500. --noerr --dofulleff
-    plot_cmd perf_results/MET_{gFex_JwoJ,gFex_RhoRMS,gFex_NC,jFex,GepMETCaloTopoClusters422,GepMETGEPCellsTower}_n1_rate60.npz --name met --plotlabel _rate60 --plottext "60 kHz [ZH->vvbb]" --nobj 1 --xmax 500. --noerr
+    plot_cmd perf_results/MET_{gFex_JwoJ,gFex_RhoRMS,gFex_NC,jFex,GepMETCaloTopoClusters422,GepMETGEPCellsTower}_n1_rate80.npz --name met --plotlabel _rate80 --plottext "80 kHz [ZH->vvbb]" --nobj 1 --xmax 500. --noerr
 fi
 
 if [[ "$OBJTYPE" == "all" ]] || [[ "$OBJTYPE" == "etaskmet" ]]; then
@@ -410,7 +410,7 @@ if [[ "$OBJTYPE" == "all" ]] || [[ "$OBJTYPE" == "etaskmet" ]]; then
     PLOT_SUBDIR="etaskmet"
     plot_cmd perf_results/MET_{GepMETCaloTopoClusters422EtaSK,GepMETGEPCellsTowerEtaSK}_n1_pt150.npz --name etaskmet --plotlabel _pt150 --plottext "MET150 [ZH->vvbb]" --nobj 1 --xmax 500. --noerr --dofulleff --dorespresol
     plot_cmd perf_results/MET_{GepMETCaloTopoClusters422EtaSK,GepMETGEPCellsTowerEtaSK}_n1_pt200.npz --name etaskmet --plotlabel _pt200 --plottext "MET200 [ZH->vvbb]" --nobj 1 --xmax 500. --noerr --dofulleff
-    plot_cmd perf_results/MET_{GepMETCaloTopoClusters422EtaSK,GepMETGEPCellsTowerEtaSK}_n1_rate60.npz --name etaskmet --plotlabel _rate60 --plottext "60 kHz [ZH->vvbb]" --nobj 1 --xmax 500. --noerr
+    plot_cmd perf_results/MET_{GepMETCaloTopoClusters422EtaSK,GepMETGEPCellsTowerEtaSK}_n1_rate80.npz --name etaskmet --plotlabel _rate80 --plottext "80 kHz [ZH->vvbb]" --nobj 1 --xmax 500. --noerr
 fi
 
 
