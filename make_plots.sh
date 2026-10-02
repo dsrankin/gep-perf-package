@@ -16,6 +16,26 @@ PLOTDIR_BASE=perf_plots
 PLOT_SUBDIR=""
 CORRECTION_MODES=(corrected uncorrected)
 
+# Each plot command is an independent process, so run a few at once. Kept
+# deliberately small for shared machines (e.g. lxplus): half the cores, at
+# most 4, at reduced priority. Override with PLOT_JOBS=N (PLOT_JOBS=1 runs
+# everything serially, as before).
+if [[ -z "$PLOT_JOBS" ]]; then
+    ncpu=$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)
+    PLOT_JOBS=$(( ncpu / 2 ))
+    (( PLOT_JOBS > 4 )) && PLOT_JOBS=4
+    (( PLOT_JOBS < 1 )) && PLOT_JOBS=1
+fi
+echo "Running up to ${PLOT_JOBS} plot jobs in parallel"
+
+# Block until fewer than PLOT_JOBS background jobs are running. (Polls rather
+# than using `wait -n`, which the macOS default bash 3.2 lacks.)
+throttle() {
+    while (( $(jobs -pr | wc -l) >= PLOT_JOBS )); do
+        sleep 0.2
+    done
+}
+
 plot_cmd() {
     local base_args=("$@")
     local mode arg
@@ -40,7 +60,8 @@ plot_cmd() {
 
         local mode_plotdir="${PLOTDIR_BASE}/${mode}/${PLOT_SUBDIR}"
         mkdir -p "$mode_plotdir"
-        gep-perf plot "${mode_args[@]}" --plotdir "$mode_plotdir"
+        throttle
+        nice -n 10 gep-perf plot "${mode_args[@]}" --plotdir "$mode_plotdir" &
     done
 }
 
@@ -431,6 +452,9 @@ stage_and_tar() {
     tar -czf "$archive" -C "$stage" "$topdir"
     rm -rf "$stage"
 }
+
+# All plot jobs must finish before anything below reads the plot tree.
+wait
 
 if [[ "$MAKETAR" == "true" ]]; then
     tar -cvz -f perf_plots.tar.gz "${PLOTDIR_BASE}/"
