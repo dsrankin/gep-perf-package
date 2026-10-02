@@ -5,14 +5,21 @@ import vector
 from tqdm import tqdm
 import math
 import gc
+import os
+import matplotlib
+
+# Plots are only ever saved to files, so use the non-interactive Agg backend.
+# Otherwise an X11-forwarded session (DISPLAY set) picks Qt/Tk and every figure
+# round-trips to the remote display, which made each plot call ~8x slower.
+# An explicit MPLBACKEND (e.g. Jupyter's inline backend) still takes precedence.
+if "MPLBACKEND" not in os.environ:
+    matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 vector.register_awkward()
 
 from dataclasses import dataclass, field, replace
 from typing import Callable, Optional
-
-import os
 
 DEFAULT_PLOTDIR = 'perf_plots'
 DEFAULT_RESDIR = 'perf_results'
