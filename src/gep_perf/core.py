@@ -638,8 +638,8 @@ def match_reco_truth(
                     if reco_metphi_mode.get(reco_prefix, False):
                         reco_phi = np.asarray(ak.to_numpy(-chunk[reco_branches[reco_prefix][1]]), dtype=np.float32)
                     else:
-                        reco_ex = np.asarray(ak.to_numpy(chunk[reco_branches[reco_prefix][1]]), dtype=np.float32)
-                        reco_ey = np.asarray(ak.to_numpy(chunk[reco_branches[reco_prefix][2]]), dtype=np.float32)
+                        reco_ex = np.asarray(ak.to_numpy(chunk[reco_branches[reco_prefix][1]] / 1000.0), dtype=np.float32)
+                        reco_ey = np.asarray(ak.to_numpy(chunk[reco_branches[reco_prefix][2]] / 1000.0), dtype=np.float32)
                         reco_et = np.asarray(np.sqrt(np.power(reco_ex, 2) + np.power(reco_ey, 2)), dtype=np.float32)
                         reco_phi = np.asarray(np.arctan2(reco_ey, reco_ex), dtype=np.float32)
 
