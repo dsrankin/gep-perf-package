@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import yaml
 
+from .rucio_files import expand_rucio_samples
 from .core import (
     RunConfig,
     null_selector,
@@ -365,6 +366,15 @@ def load_run_config(path: str | Path) -> RunConfig:
     for k in ["signal_files", "background_files", "background_weights", "reco_prefixes", "reco_labels", "nobjs", "rates", "triggers", "correction_modes"]:
         if k in data and not isinstance(data[k], list):
             data[k] = [data[k]]
+
+    # rucio://scope:name entries become one sample each, made of the dataset's
+    # root:// files; rucio_rses optionally lists the preferred sites in order.
+    rucio_rses = data.pop("rucio_rses", None)
+    if isinstance(rucio_rses, str):
+        rucio_rses = [rucio_rses]
+    for k in ["signal_files", "background_files"]:
+        if k in data:
+            data[k] = expand_rucio_samples(data[k], rucio_rses)
 
     original_reco_prefixes = list(data.get("reco_prefixes", []))
 

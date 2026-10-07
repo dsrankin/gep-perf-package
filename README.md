@@ -130,6 +130,34 @@ This needs the XRootD Python bindings (`fsspec_xrootd`, `xrootd`). On lxplus,
 `pip install fsspec-xrootd xrootd`. Grid storage also needs a valid proxy
 (`voms-proxy-init -voms atlas`).
 
+### Rucio datasets
+
+A sample can also be a Rucio dataset or container, written
+`rucio://<scope>:<name>`. When the config is loaded, each such entry is
+replaced by the `root://` URLs of all its files and treated as one sample, so
+its weight applies to the whole dataset. It can also appear inside a
+multi-file sample list.
+
+```yaml
+signal_files:
+- rucio://user.drankin:user.drankin.tgp_base_zvvhbb_sep25_EXT0
+background_files:
+- rucio://user.drankin:user.drankin.tgp_base_jz0_sep25_EXT0
+- rucio://user.drankin:user.drankin.tgp_base_jz1_sep25_EXT0
+background_weights: [76.66, 3.66]
+# optional: sites to read from, in order of preference
+rucio_rses: [CERN-PROD_DATADISK]
+```
+
+Without `rucio_rses`, each file is read from its best-priority disk replica
+(tape replicas are never used). The lookup talks to the ATLAS Rucio servers
+directly with your grid proxy, so it needs no Rucio client or `lsetup rucio`;
+it works in the `setup_lxplus.sh` environment. It needs:
+
+- a grid proxy: `voms-proxy-init -voms atlas` (or set `X509_USER_PROXY`)
+- `RUCIO_ACCOUNT`, only if your certificate maps to more than one Rucio account
+- `RUCIO_HOST` / `RUCIO_AUTH_HOST`, only to use servers other than ATLAS's
+
 ### Corrected and uncorrected results
 
 Set `correction_modes` to any ordered combination of `corrected` and
