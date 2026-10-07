@@ -550,7 +550,8 @@ def match_reco_truth(
                 "elsewhere run `pip install fsspec-xrootd xrootd`."
             ) from err
 
-    with uproot.open(samples[0][0]) as ftmp:
+    first_url, _ = open_reachable(samples[0][0], tree_name)
+    with uproot.open(first_url) as ftmp:
         available_branches = set(ftmp[tree_name].keys())
 
     reco_extra_branches = {}
@@ -620,8 +621,8 @@ def match_reco_truth(
     event_rhos = []
 
     def process_file(filename):
-        with uproot.open(filename) as ftmp:
-            n_events = ftmp[tree_name].num_entries
+        # Falls back to another replica if this file's site does not respond.
+        filename, n_events = open_reachable(filename, tree_name)
         total_chunks = math.ceil(n_events / step_size)
         print(f"{filename}: {total_chunks} chunks")
 
@@ -734,6 +735,36 @@ def match_reco_truth(
             fields[name] = ak.unflatten(np.concatenate(acc[reco_prefix].pop(name)), counts)
         output[reco_prefix] = ak.zip(fields, depth_limit=1)
     return output
+
+
+# filename -> replica URL that opened, so dead sites are only tried once
+_REACHABLE: dict[str, str] = {}
+
+
+def open_reachable(filename: str, tree_name: str) -> tuple[str, int]:
+    """Return (url, n_entries) for the first replica of ``filename`` that opens.
+
+    Files resolved from rucio:// entries may have copies at other sites; if one
+    site does not respond (e.g. XRootD "Operation expired"), try the next.
+    """
+    from .rucio_files import replica_alternatives
+
+    if filename in _REACHABLE:
+        candidates = [_REACHABLE[filename]]
+    else:
+        candidates = [filename] + replica_alternatives(filename)
+    errors = []
+    for i, url in enumerate(candidates):
+        try:
+            with uproot.open(url) as ftmp:
+                n_entries = ftmp[tree_name].num_entries
+            _REACHABLE[filename] = url
+            return url, n_entries
+        except OSError as err:
+            errors.append(f"  {url}: {err}")
+            if i + 1 < len(candidates):
+                print(f"Could not open {url} ({err}); trying another replica")
+    raise OSError(f"Could not open {filename} (tried {len(candidates)} replica(s)):\n" + "\n".join(errors))
 
 
 def sample_files(sample) -> list[str]:

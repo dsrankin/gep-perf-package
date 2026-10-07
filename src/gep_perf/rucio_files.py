@@ -99,9 +99,9 @@ class RucioResolver:
             )
         return [json.loads(line) for line in resp.text.splitlines() if line.strip()]
 
-    def choose_pfn(self, replica: dict) -> Optional[tuple[str, str]]:
-        """Pick one (rse, pfn) for a file: a preferred RSE if available, else the
-        best-priority disk replica. Returns None if no usable replica exists."""
+    def ranked_pfns(self, replica: dict) -> list[tuple[str, str]]:
+        """All usable (rse, pfn) for a file, best first: preferred RSEs in the
+        given order, then the remaining disk replicas by Rucio priority."""
         candidates = []
         for pfn, info in (replica.get("pfns") or {}).items():
             if not pfn.startswith("root://") or info.get("type") == "TAPE":
@@ -110,14 +110,9 @@ class RucioResolver:
             if replica.get("states", {}).get(rse, "AVAILABLE") != "AVAILABLE":
                 continue
             candidates.append((rse, pfn, info.get("priority", 0)))
-        if not candidates:
-            return None
-        for rse in self.preferred_rses:
-            for cand_rse, pfn, _ in candidates:
-                if cand_rse == rse:
-                    return cand_rse, pfn
-        rse, pfn, _ = min(candidates, key=lambda c: c[2])
-        return rse, pfn
+        rank = {rse: i for i, rse in enumerate(self.preferred_rses)}
+        candidates.sort(key=lambda c: (rank.get(c[0], len(rank)), c[2]))
+        return [(rse, pfn) for rse, pfn, _ in candidates]
 
     def resolve(self, entry: str) -> list[str]:
         """``rucio://scope:name`` (file, dataset or container) -> sorted root:// PFNs."""
@@ -132,12 +127,13 @@ class RucioResolver:
             raise RuntimeError(f"Rucio found no files for {scope}:{name}")
         chosen, missing, rses = [], [], set()
         for replica in replicas:
-            pick = self.choose_pfn(replica)
-            if pick is None:
+            ranked = self.ranked_pfns(replica)
+            if not ranked:
                 missing.append(f"{replica.get('scope')}:{replica.get('name')}")
                 continue
-            rses.add(pick[0])
-            chosen.append((replica.get("name", ""), pick[1]))
+            rses.add(ranked[0][0])
+            chosen.append((replica.get("name", ""), ranked[0][1]))
+            _ALTERNATIVES[ranked[0][1]] = [pfn for _, pfn in ranked[1:]]
         if missing:
             raise RuntimeError(
                 f"{len(missing)} of {len(replicas)} files in {scope}:{name} have no available "
@@ -145,6 +141,16 @@ class RucioResolver:
             )
         print(f"{entry}: {len(chosen)} files from {', '.join(sorted(rses))}")
         return [pfn for _, pfn in sorted(chosen)]
+
+
+# Primary PFN -> the file's other replicas, best first, so a reader can fall
+# back to another site if the first one does not respond.
+_ALTERNATIVES: dict[str, list[str]] = {}
+
+
+def replica_alternatives(url: str) -> list[str]:
+    """Other replicas of a file resolved from a rucio:// entry (empty otherwise)."""
+    return list(_ALTERNATIVES.get(url, []))
 
 
 # One resolver per site preference, so a run authenticates once and looks up
