@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 vector.register_awkward()
 
 from dataclasses import dataclass, field, replace
-from typing import Callable, Optional
+from typing import Callable, Optional, Union
 
 DEFAULT_PLOTDIR = 'perf_plots'
 DEFAULT_RESDIR = 'perf_results'
@@ -99,8 +99,10 @@ def get_efficiency_marker(index: int) -> str:
 @dataclass
 class RunConfig:
     name: str
-    signal_files: list[str]
-    background_files: list[str]
+    # Each entry is one sample: a single file path/URL, or a list of files that
+    # together make up the sample (weights are normalized per sample).
+    signal_files: list[Union[str, list[str]]]
+    background_files: list[Union[str, list[str]]]
     background_weights: list[float]
     reco_prefixes: list[str]
     reco_labels: Optional[list[str]]
@@ -137,6 +139,8 @@ class RunConfig:
     def __post_init__(self):
         if self.reco_labels is None:
             self.reco_labels = list(self.reco_prefixes)
+        for sample in list(self.signal_files) + list(self.background_files):
+            sample_files(sample)
         if len(self.background_files)!=len(self.background_weights):
             raise ValueError(f"Background files ({len(self.background_files)}) and weights ({len(self.background_weights)}) must be the same length")
         if len(self.reco_labels)!=len(self.reco_prefixes):
@@ -532,7 +536,11 @@ def match_reco_truth(
         f"{truth_prefix}_{phi_name}{truth_suffix}",
     ]
 
-    with uproot.open(files[0]) as ftmp:
+    samples = [sample_files(sample) for sample in files]
+    if len(weights) != len(samples):
+        raise ValueError(f"Number of weights ({len(weights)}) and samples ({len(samples)}) must be the same length")
+
+    with uproot.open(samples[0][0]) as ftmp:
         available_branches = set(ftmp[tree_name].keys())
 
     reco_extra_branches = {}
@@ -601,14 +609,16 @@ def match_reco_truth(
     event_weights = []
     event_rhos = []
 
-    def process_file(filename, weight):
+    def process_file(filename):
         with uproot.open(filename) as ftmp:
             n_events = ftmp[tree_name].num_entries
         total_chunks = math.ceil(n_events / step_size)
         print(f"{filename}: {total_chunks} chunks")
 
+        # Pass {file: tree} rather than "file:tree" so URLs that contain their
+        # own colons (e.g. root://host:1094//path/file.root) parse correctly.
         it = uproot.iterate(
-            f"{filename}:{tree_name}",
+            {filename: tree_name},
             branches,
             step_size=step_size,
             library="ak",
@@ -688,12 +698,14 @@ def match_reco_truth(
             del chunk, results
             gc.collect()
 
-        file_weights = np.concatenate(file_weights) if file_weights else np.zeros(0, dtype=np.float64)
-        total_weight = np.sum(file_weights)
-        event_weights.append(file_weights * weight / total_weight)
+        return np.concatenate(file_weights) if file_weights else np.zeros(0, dtype=np.float64)
 
-    for i, f in enumerate(files):
-        process_file(f, weights[i])
+    # Normalize per sample, not per file: the events of all files in a sample
+    # together sum to that sample's weight, so splitting a sample across files
+    # does not change its overall normalization.
+    for sample, weight in zip(samples, weights):
+        sample_weights = np.concatenate([process_file(f) for f in sample])
+        event_weights.append(sample_weights * weight / np.sum(sample_weights))
 
     event_ids = np.concatenate(event_ids)
     event_weights = np.concatenate(event_weights)
@@ -712,6 +724,15 @@ def match_reco_truth(
             fields[name] = ak.unflatten(np.concatenate(acc[reco_prefix].pop(name)), counts)
         output[reco_prefix] = ak.zip(fields, depth_limit=1)
     return output
+
+
+def sample_files(sample) -> list[str]:
+    """Files making up one sample entry: a single path/URL, or a list of them."""
+    if isinstance(sample, str):
+        return [sample]
+    if isinstance(sample, (list, tuple)) and sample and all(isinstance(f, str) for f in sample):
+        return list(sample)
+    raise ValueError(f"A sample must be a file path or a non-empty list of file paths, got: {sample!r}")
 
 
 def kth_sort_order(arr, sorton):

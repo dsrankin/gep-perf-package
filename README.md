@@ -95,6 +95,25 @@ spline_lambdas:
   L1_jFexSRJetRoISim: 5.0e-6
 ```
 
+### Input samples
+
+Each entry in `signal_files` and `background_files` is one sample: either a
+single file, or a list of files that together make up the sample (e.g. the
+files of one dataset). Each background sample has one entry in
+`background_weights`. Event weights are normalized per sample, so all events of
+a sample sum to its weight however many files it is split across.
+
+```yaml
+background_files:
+- /path/to/jz0/outputGEPNtuple.root              # one-file sample
+- [/path/to/jz1/file1.root, /path/to/jz1/file2.root]  # multi-file sample
+background_weights: [76.66, 3.66]
+```
+
+Files can be local paths or remote XRootD URLs (`root://host//path/file.root`);
+reading remote files requires the XRootD Python bindings (e.g. `fsspec-xrootd`)
+and, for grid storage, a valid proxy (`voms-proxy-init -voms atlas`).
+
 ### Corrected and uncorrected results
 
 Set `correction_modes` to any ordered combination of `corrected` and
