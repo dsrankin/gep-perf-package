@@ -540,6 +540,16 @@ def match_reco_truth(
     if len(weights) != len(samples):
         raise ValueError(f"Number of weights ({len(weights)}) and samples ({len(samples)}) must be the same length")
 
+    if any(f.startswith("root://") for sample in samples for f in sample):
+        try:
+            import fsspec_xrootd  # noqa: F401  (uproot's handler for root:// URLs)
+        except ImportError as err:
+            raise ImportError(
+                "Reading root:// files needs the XRootD Python bindings (fsspec_xrootd). "
+                "On lxplus, `source setup_lxplus.sh` provides them via the LCG view; "
+                "elsewhere run `pip install fsspec-xrootd xrootd`."
+            ) from err
+
     with uproot.open(samples[0][0]) as ftmp:
         available_branches = set(ftmp[tree_name].keys())
 

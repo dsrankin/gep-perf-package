@@ -8,6 +8,20 @@ This package is designed to allow for simple, configurable, studies of different
 pip install -e .
 ```
 
+### lxplus (no install)
+
+On lxplus, or any EL9 machine with CVMFS, nothing needs installing. Source the
+setup script from the repository root in each new shell:
+
+```bash
+source setup_lxplus.sh
+```
+
+It sets up the LCG view (default `LCG_110a`, `x86_64-el9-gcc14-opt`), which
+provides every dependency including the XRootD bindings for `root://` files,
+and puts this checkout's `gep-perf` command on your `PATH`. To use a different
+view, set `LCG_VIEW` to its `setup.sh` before sourcing.
+
 ## Run
 
 ```bash
@@ -110,9 +124,11 @@ background_files:
 background_weights: [76.66, 3.66]
 ```
 
-Files can be local paths or remote XRootD URLs (`root://host//path/file.root`);
-reading remote files requires the XRootD Python bindings (e.g. `fsspec-xrootd`)
-and, for grid storage, a valid proxy (`voms-proxy-init -voms atlas`).
+Files can be local paths or remote XRootD URLs (`root://host//path/file.root`).
+This needs the XRootD Python bindings (`fsspec_xrootd`, `xrootd`). On lxplus,
+`source setup_lxplus.sh` provides them (see below); elsewhere install them with
+`pip install fsspec-xrootd xrootd`. Grid storage also needs a valid proxy
+(`voms-proxy-init -voms atlas`).
 
 ### Corrected and uncorrected results
 

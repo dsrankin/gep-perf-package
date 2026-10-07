@@ -1,0 +1,3 @@
+#!/bin/bash
+# Runs gep-perf from this checkout without a pip install (see setup_lxplus.sh).
+exec python3 -m gep_perf.cli "$@"
