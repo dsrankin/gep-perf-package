@@ -134,6 +134,7 @@ class RucioResolver:
             rses.add(ranked[0][0])
             chosen.append((replica.get("name", ""), ranked[0][1]))
             _ALTERNATIVES[ranked[0][1]] = [pfn for _, pfn in ranked[1:]]
+            _DATASET_OF[ranked[0][1]] = name
         if missing:
             raise RuntimeError(
                 f"{len(missing)} of {len(replicas)} files in {scope}:{name} have no available "
@@ -146,6 +147,15 @@ class RucioResolver:
 # Primary PFN -> the file's other replicas, best first, so a reader can fall
 # back to another site if the first one does not respond.
 _ALTERNATIVES: dict[str, list[str]] = {}
+
+
+# Primary PFN -> name of the Rucio dataset/container it was resolved from
+_DATASET_OF: dict[str, str] = {}
+
+
+def dataset_of(url: str) -> Optional[str]:
+    """Rucio dataset name a file was resolved from, or None for other inputs."""
+    return _DATASET_OF.get(url)
 
 
 def replica_alternatives(url: str) -> list[str]:

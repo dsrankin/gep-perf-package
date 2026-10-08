@@ -161,6 +161,12 @@ it works in the `setup_lxplus.sh` environment. It needs:
 If a file's site does not respond, the next replica of that file is tried
 automatically.
 
+Progress for a Rucio dataset is shown as one bar counting files
+(e.g. `user.drankin.tgp_base_jz0_sep25_EXT0: 37/120 files`) instead of a bar
+per file. The optional `progress` setting changes this: `auto` (default; file
+counts for Rucio datasets, per-file chunk bars otherwise), `files` (file counts
+for every sample) or `chunks` (per-file chunk bars everywhere).
+
 ### Unreachable files
 
 Two optional settings control what happens when remote files cannot be read:

@@ -140,12 +140,17 @@ class RunConfig:
     # skipped with a warning instead of stopping the run.
     file_timeout: Optional[float] = None
     skip_unreadable_files: bool = False
+    # Progress display: "chunks" (one bar per file), "files" (one bar per
+    # sample counting files) or "auto" (files for Rucio datasets, else chunks).
+    progress: str = "auto"
         
     def __post_init__(self):
         if self.reco_labels is None:
             self.reco_labels = list(self.reco_prefixes)
         for sample in list(self.signal_files) + list(self.background_files):
             sample_files(sample)
+        if self.progress not in ("auto", "files", "chunks"):
+            raise ValueError(f"progress must be one of auto, files, chunks; got: {self.progress!r}")
         if self.file_timeout is not None and not self.file_timeout > 0:
             raise ValueError(f"file_timeout must be a positive number of seconds, got: {self.file_timeout!r}")
         if len(self.background_files)!=len(self.background_weights):
@@ -519,6 +524,7 @@ def match_reco_truth(
     step_size=10000,
     file_timeout=None,
     skip_unreadable_files=False,
+    progress="auto",
 ):
 
     if weights is None:
@@ -642,23 +648,24 @@ def match_reco_truth(
 
     skipped = []
 
-    def process_file(filename):
+    def process_file(filename, show_chunks):
         """Read one file; returns its raw event weights, or None if it was
         skipped (only with skip_unreadable_files)."""
         try:
-            return read_file(filename)
+            return read_file(filename, show_chunks)
         except OSError as err:
             if not skip_unreadable_files:
                 raise
-            print(f"WARNING: skipping unreadable file {filename}: {err}")
+            tqdm.write(f"WARNING: skipping unreadable file {filename}: {err}")
             skipped.append(filename)
             return None
 
-    def read_file(filename):
+    def read_file(filename, show_chunks):
         # Falls back to another replica if this file's site does not respond.
         filename, n_events = open_reachable(filename, tree_name, file_timeout)
         total_chunks = math.ceil(n_events / step_size)
-        print(f"{filename}: {total_chunks} chunks")
+        if show_chunks:
+            print(f"{filename}: {total_chunks} chunks")
 
         # Pass {file: tree} rather than "file:tree" so URLs that contain their
         # own colons (e.g. root://host:1094//path/file.root) parse correctly.
@@ -679,7 +686,7 @@ def match_reco_truth(
         file_ids = []
         file_rhos = []
 
-        for chunk in tqdm(it, total=total_chunks, desc=f"{filename}"):
+        for chunk in tqdm(it, total=total_chunks, desc=f"{filename}", disable=not show_chunks):
             n_events_chunk = len(chunk[truth_branches[0]])
 
             if met_mode:
@@ -760,8 +767,20 @@ def match_reco_truth(
     # Normalize per sample, not per file: the events of all files in a sample
     # together sum to that sample's weight, so splitting a sample across files
     # (or skipping an unreadable one) does not change its overall normalization.
+    from .rucio_files import dataset_of
+
     for sample, weight in zip(samples, weights):
-        read = [w for w in (process_file(f) for f in sample) if w is not None]
+        datasets = sorted({d for d in map(dataset_of, sample) if d})
+        by_file = progress == "files" or (progress == "auto" and bool(datasets))
+        files = sample
+        if by_file:
+            # One bar per sample counting files, instead of a bar per file.
+            if datasets:
+                label = ", ".join(datasets)
+            else:
+                label = sample[0] if len(sample) == 1 else f"{os.path.basename(sample[0])} + {len(sample) - 1} more"
+            files = tqdm(sample, desc=label, unit="file")
+        read = [w for w in (process_file(f, not by_file) for f in files) if w is not None]
         if not read:
             raise OSError(f"No file of sample {sample} could be read, so it cannot be normalized")
         sample_weights = np.concatenate(read)
@@ -829,7 +848,7 @@ def open_reachable(filename: str, tree_name: str, file_timeout=None) -> tuple[st
         except OSError as err:
             errors.append(f"  {url}: {err}")
             if i + 1 < len(candidates):
-                print(f"Could not open {url} ({err}); trying another replica")
+                tqdm.write(f"Could not open {url} ({err}); trying another replica")
     _UNREACHABLE[filename] = OSError(
         f"Could not open {filename} (tried {len(candidates)} replica(s)):\n" + "\n".join(errors)
     )
@@ -1939,6 +1958,7 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
         truth_iso_dr=config.truth_iso_dr,
         file_timeout=config.file_timeout,
         skip_unreadable_files=config.skip_unreadable_files,
+        progress=config.progress,
         **config.match_dict
     )
 
@@ -1960,6 +1980,7 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
         truth_iso_dr=config.truth_iso_dr,
         file_timeout=config.file_timeout,
         skip_unreadable_files=config.skip_unreadable_files,
+        progress=config.progress,
         **config.match_dict
     )
 
