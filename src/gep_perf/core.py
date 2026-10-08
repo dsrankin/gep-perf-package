@@ -565,18 +565,20 @@ def match_reco_truth(
                 "elsewhere run `pip install fsspec-xrootd xrootd`."
             ) from err
 
-    # Branch list from the first file that can be read.
+    # Branch list from the first file that can be read and has the tree.
     first_url = None
     for f in (f for sample in samples for f in sample):
         try:
-            first_url, _ = open_reachable(f, tree_name, file_timeout)
-            break
+            url, n_entries = open_reachable(f, tree_name, file_timeout)
         except OSError:
             if not skip_unreadable_files:
                 raise
-            # reported (once) when the file is skipped below
+            continue  # reported (once) when the file is skipped below
+        if n_entries is not None:
+            first_url = url
+            break
     if first_url is None:
-        raise OSError("None of the input files could be read")
+        raise OSError(f"None of the input files could be read and contains a '{tree_name}' tree")
     with uproot.open(first_url, **_open_options(first_url, file_timeout)) as ftmp:
         available_branches = set(ftmp[tree_name].keys())
 
@@ -647,6 +649,7 @@ def match_reco_truth(
     event_rhos = []
 
     skipped = []
+    no_tree = []
 
     def process_file(filename, show_chunks):
         """Read one file; returns its raw event weights, or None if it was
@@ -663,6 +666,11 @@ def match_reco_truth(
     def read_file(filename, show_chunks):
         # Falls back to another replica if this file's site does not respond.
         filename, n_events = open_reachable(filename, tree_name, file_timeout)
+        if not n_events:
+            # No tree (or an empty one): nothing to read, but not an error.
+            if n_events is None:
+                no_tree.append(filename)
+            return np.zeros(0, dtype=np.float64)
         total_chunks = math.ceil(n_events / step_size)
         if show_chunks:
             print(f"{filename}: {total_chunks} chunks")
@@ -784,8 +792,17 @@ def match_reco_truth(
         if not read:
             raise OSError(f"No file of sample {sample} could be read, so it cannot be normalized")
         sample_weights = np.concatenate(read)
+        if not np.sum(sample_weights) > 0:
+            raise ValueError(
+                f"Sample {sample if len(sample) <= 3 else sample[:3] + ['...']} has no events "
+                f"(or zero total weight), so it cannot be normalized"
+            )
         event_weights.append(sample_weights * weight / np.sum(sample_weights))
 
+    if no_tree:
+        print(f"Note: {len(no_tree)} file(s) had no '{tree_name}' tree and were treated as empty:")
+        for f in no_tree:
+            print(f"  {f}")
     if skipped:
         print(f"WARNING: skipped {len(skipped)} unreadable file(s):")
         for f in skipped:
@@ -824,8 +841,10 @@ def _open_options(url: str, file_timeout) -> dict:
     return {}
 
 
-def open_reachable(filename: str, tree_name: str, file_timeout=None) -> tuple[str, int]:
+def open_reachable(filename: str, tree_name: str, file_timeout=None) -> tuple[str, Optional[int]]:
     """Return (url, n_entries) for the first replica of ``filename`` that opens.
+    n_entries is None if the file has no ``tree_name`` tree (e.g. grid output
+    from a job that processed no events).
 
     Files resolved from rucio:// entries may have copies at other sites; if one
     site does not respond (e.g. XRootD "Operation expired"), try the next.
@@ -842,7 +861,10 @@ def open_reachable(filename: str, tree_name: str, file_timeout=None) -> tuple[st
     for i, url in enumerate(candidates):
         try:
             with uproot.open(url, **_open_options(url, file_timeout)) as ftmp:
-                n_entries = ftmp[tree_name].num_entries
+                try:
+                    n_entries = ftmp[tree_name].num_entries
+                except uproot.KeyInFileError:
+                    n_entries = None
             _REACHABLE[filename] = url
             return url, n_entries
         except OSError as err:

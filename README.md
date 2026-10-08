@@ -186,6 +186,10 @@ skip_unreadable_files: true  # default false
   the files that were read, so its weight is unchanged. A sample with no
   readable files is still an error.
 
+A file that opens but has no `ntuple` tree (or `tree`, if set), as grid jobs
+that processed no events often produce, is not an error: it is treated as an
+empty file and listed at the end of the run.
+
 ### Corrected and uncorrected results
 
 Set `correction_modes` to any ordered combination of `corrected` and
