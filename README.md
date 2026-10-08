@@ -8,6 +8,20 @@ This package is designed to allow for simple, configurable, studies of different
 pip install -e .
 ```
 
+### lxplus (no install)
+
+On lxplus, or any EL9 machine with CVMFS, nothing needs installing. Source the
+setup script from the repository root in each new shell:
+
+```bash
+source setup_lxplus.sh
+```
+
+It sets up the LCG view (default `LCG_110a`, `x86_64-el9-gcc14-opt`), which
+provides every dependency including the XRootD bindings for `root://` files,
+and puts this checkout's `gep-perf` command on your `PATH`. To use a different
+view, set `LCG_VIEW` to its `setup.sh` before sourcing.
+
 ## Run
 
 ```bash
@@ -94,6 +108,87 @@ spline_lambdas:
   AntiKt4GEPCellsTowerAlgJets: 2.0e-5
   L1_jFexSRJetRoISim: 5.0e-6
 ```
+
+### Input samples
+
+Each entry in `signal_files` and `background_files` is one sample: either a
+single file, or a list of files that together make up the sample (e.g. the
+files of one dataset). Each background sample has one entry in
+`background_weights`. Event weights are normalized per sample, so all events of
+a sample sum to its weight however many files it is split across.
+
+```yaml
+background_files:
+- /path/to/jz0/outputGEPNtuple.root              # one-file sample
+- [/path/to/jz1/file1.root, /path/to/jz1/file2.root]  # multi-file sample
+background_weights: [76.66, 3.66]
+```
+
+Files can be local paths or remote XRootD URLs (`root://host//path/file.root`).
+This needs the XRootD Python bindings (`fsspec_xrootd`, `xrootd`). On lxplus,
+`source setup_lxplus.sh` provides them (see below); elsewhere install them with
+`pip install fsspec-xrootd xrootd`. Grid storage also needs a valid proxy
+(`voms-proxy-init -voms atlas`).
+
+### Rucio datasets
+
+A sample can also be a Rucio dataset or container, written
+`rucio://<scope>:<name>`. When the config is loaded, each such entry is
+replaced by the `root://` URLs of all its files and treated as one sample, so
+its weight applies to the whole dataset. It can also appear inside a
+multi-file sample list.
+
+```yaml
+signal_files:
+- rucio://user.drankin:user.drankin.tgp_base_zvvhbb_sep25_EXT0
+background_files:
+- rucio://user.drankin:user.drankin.tgp_base_jz0_sep25_EXT0
+- rucio://user.drankin:user.drankin.tgp_base_jz1_sep25_EXT0
+background_weights: [76.66, 3.66]
+# optional: sites to read from, in order of preference
+rucio_rses: [CERN-PROD_DATADISK]
+```
+
+Without `rucio_rses`, each file is read from its best-priority disk replica
+(tape replicas are never used). The lookup talks to the ATLAS Rucio servers
+directly with your grid proxy, so it needs no Rucio client or `lsetup rucio`;
+it works in the `setup_lxplus.sh` environment. It needs:
+
+- a grid proxy: `voms-proxy-init -voms atlas` (or set `X509_USER_PROXY`)
+- `RUCIO_ACCOUNT`, only if your certificate maps to more than one Rucio account
+- `RUCIO_HOST` / `RUCIO_AUTH_HOST`, only to use servers other than ATLAS's
+
+If a file's site does not respond, the next replica of that file is tried
+automatically.
+
+Progress for a Rucio dataset is shown as one bar counting files
+(e.g. `user.drankin.tgp_base_jz0_sep25_EXT0: 37/120 files`) instead of a bar
+per file. The optional `progress` setting changes this: `auto` (default; file
+counts for Rucio datasets, per-file chunk bars otherwise), `files` (file counts
+for every sample) or `chunks` (per-file chunk bars everywhere).
+
+### Unreachable files
+
+Two optional settings control what happens when remote files cannot be read:
+
+```yaml
+file_timeout: 60             # seconds per XRootD operation (root:// files only)
+skip_unreadable_files: true  # default false
+```
+
+- `file_timeout`: how long to wait for each XRootD operation before giving up
+  on a site. Unset, the XRootD client's own defaults apply. Local files are
+  not affected.
+- `skip_unreadable_files`: by default, a file that cannot be read (after trying
+  all its replicas) stops the run. With `true`, it is skipped with a warning,
+  including when it fails partway through (none of its events are kept), and
+  a list of skipped files is printed at the end. Each sample is normalized over
+  the files that were read, so its weight is unchanged. A sample with no
+  readable files is still an error.
+
+A file that opens but has no `ntuple` tree (or `tree`, if set), as grid jobs
+that processed no events often produce, is not an error: it is treated as an
+empty file and listed at the end of the run.
 
 ### Corrected and uncorrected results
 

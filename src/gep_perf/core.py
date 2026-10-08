@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 vector.register_awkward()
 
 from dataclasses import dataclass, field, replace
-from typing import Callable, Optional
+from typing import Callable, Optional, Union
 
 DEFAULT_PLOTDIR = 'perf_plots'
 DEFAULT_RESDIR = 'perf_results'
@@ -99,8 +99,10 @@ def get_efficiency_marker(index: int) -> str:
 @dataclass
 class RunConfig:
     name: str
-    signal_files: list[str]
-    background_files: list[str]
+    # Each entry is one sample: a single file path/URL, or a list of files that
+    # together make up the sample (weights are normalized per sample).
+    signal_files: list[Union[str, list[str]]]
+    background_files: list[Union[str, list[str]]]
     background_weights: list[float]
     reco_prefixes: list[str]
     reco_labels: Optional[list[str]]
@@ -133,10 +135,24 @@ class RunConfig:
     pt_min: float = 10.
     reco_iso_dr: float = 0.4
     truth_iso_dr: float = 0.4
+    # Remote (root://) reads: per-operation XRootD timeout in seconds (None
+    # keeps the XRootD default), and whether a file that cannot be read is
+    # skipped with a warning instead of stopping the run.
+    file_timeout: Optional[float] = None
+    skip_unreadable_files: bool = False
+    # Progress display: "chunks" (one bar per file), "files" (one bar per
+    # sample counting files) or "auto" (files for Rucio datasets, else chunks).
+    progress: str = "auto"
         
     def __post_init__(self):
         if self.reco_labels is None:
             self.reco_labels = list(self.reco_prefixes)
+        for sample in list(self.signal_files) + list(self.background_files):
+            sample_files(sample)
+        if self.progress not in ("auto", "files", "chunks"):
+            raise ValueError(f"progress must be one of auto, files, chunks; got: {self.progress!r}")
+        if self.file_timeout is not None and not self.file_timeout > 0:
+            raise ValueError(f"file_timeout must be a positive number of seconds, got: {self.file_timeout!r}")
         if len(self.background_files)!=len(self.background_weights):
             raise ValueError(f"Background files ({len(self.background_files)}) and weights ({len(self.background_weights)}) must be the same length")
         if len(self.reco_labels)!=len(self.reco_prefixes):
@@ -506,6 +522,9 @@ def match_reco_truth(
     met_reco_ey_name="ey",
     met_special_prefixes=None,
     step_size=10000,
+    file_timeout=None,
+    skip_unreadable_files=False,
+    progress="auto",
 ):
 
     if weights is None:
@@ -532,7 +551,35 @@ def match_reco_truth(
         f"{truth_prefix}_{phi_name}{truth_suffix}",
     ]
 
-    with uproot.open(files[0]) as ftmp:
+    samples = [sample_files(sample) for sample in files]
+    if len(weights) != len(samples):
+        raise ValueError(f"Number of weights ({len(weights)}) and samples ({len(samples)}) must be the same length")
+
+    if any(f.startswith("root://") for sample in samples for f in sample):
+        try:
+            import fsspec_xrootd  # noqa: F401  (uproot's handler for root:// URLs)
+        except ImportError as err:
+            raise ImportError(
+                "Reading root:// files needs the XRootD Python bindings (fsspec_xrootd). "
+                "On lxplus, `source setup_lxplus.sh` provides them via the LCG view; "
+                "elsewhere run `pip install fsspec-xrootd xrootd`."
+            ) from err
+
+    # Branch list from the first file that can be read and has the tree.
+    first_url = None
+    for f in (f for sample in samples for f in sample):
+        try:
+            url, n_entries = open_reachable(f, tree_name, file_timeout)
+        except OSError:
+            if not skip_unreadable_files:
+                raise
+            continue  # reported (once) when the file is skipped below
+        if n_entries is not None:
+            first_url = url
+            break
+    if first_url is None:
+        raise OSError(f"None of the input files could be read and contains a '{tree_name}' tree")
+    with uproot.open(first_url, **_open_options(first_url, file_timeout)) as ftmp:
         available_branches = set(ftmp[tree_name].keys())
 
     reco_extra_branches = {}
@@ -601,23 +648,53 @@ def match_reco_truth(
     event_weights = []
     event_rhos = []
 
-    def process_file(filename, weight):
-        with uproot.open(filename) as ftmp:
-            n_events = ftmp[tree_name].num_entries
-        total_chunks = math.ceil(n_events / step_size)
-        print(f"{filename}: {total_chunks} chunks")
+    skipped = []
+    no_tree = []
 
+    def process_file(filename, show_chunks):
+        """Read one file; returns its raw event weights, or None if it was
+        skipped (only with skip_unreadable_files)."""
+        try:
+            return read_file(filename, show_chunks)
+        except OSError as err:
+            if not skip_unreadable_files:
+                raise
+            tqdm.write(f"WARNING: skipping unreadable file {filename}: {err}")
+            skipped.append(filename)
+            return None
+
+    def read_file(filename, show_chunks):
+        # Falls back to another replica if this file's site does not respond.
+        filename, n_events = open_reachable(filename, tree_name, file_timeout)
+        if not n_events:
+            # No tree (or an empty one): nothing to read, but not an error.
+            if n_events is None:
+                no_tree.append(filename)
+            return np.zeros(0, dtype=np.float64)
+        total_chunks = math.ceil(n_events / step_size)
+        if show_chunks:
+            print(f"{filename}: {total_chunks} chunks")
+
+        # Pass {file: tree} rather than "file:tree" so URLs that contain their
+        # own colons (e.g. root://host:1094//path/file.root) parse correctly.
         it = uproot.iterate(
-            f"{filename}:{tree_name}",
+            {filename: tree_name},
             branches,
             step_size=step_size,
             library="ak",
+            **_open_options(filename, file_timeout),
         )
 
+        # Collect this file's chunks separately and only add them once the
+        # whole file has been read, so a file that fails partway through
+        # leaves nothing behind if it is skipped.
         event_offset = 0
         file_weights = []
+        file_acc = {reco_prefix: {name: [] for name in acc[reco_prefix]} for reco_prefix in reco_prefixes}
+        file_ids = []
+        file_rhos = []
 
-        for chunk in tqdm(it, total=total_chunks, desc=f"{filename}"):
+        for chunk in tqdm(it, total=total_chunks, desc=f"{filename}", disable=not show_chunks):
             n_events_chunk = len(chunk[truth_branches[0]])
 
             if met_mode:
@@ -673,11 +750,11 @@ def match_reco_truth(
 
             for reco_prefix in reco_prefixes:
                 for name, values in results[reco_prefix].items():
-                    acc[reco_prefix][name].append(values)
+                    file_acc[reco_prefix][name].append(values)
 
-            event_ids.append(np.arange(event_offset, event_offset + n_events_chunk, dtype=np.int64))
+            file_ids.append(np.arange(event_offset, event_offset + n_events_chunk, dtype=np.int64))
             file_weights.append(np.asarray(ak.to_numpy(chunk["weight"]), dtype=np.float64))
-            event_rhos.append(
+            file_rhos.append(
                 np.asarray(
                     ak.to_numpy(ak.fill_none(ak.pad_none(chunk["gFEX_rho"], 3, axis=1, clip=True), 0.)),
                     dtype=np.float64,
@@ -688,12 +765,48 @@ def match_reco_truth(
             del chunk, results
             gc.collect()
 
-        file_weights = np.concatenate(file_weights) if file_weights else np.zeros(0, dtype=np.float64)
-        total_weight = np.sum(file_weights)
-        event_weights.append(file_weights * weight / total_weight)
+        for reco_prefix in reco_prefixes:
+            for name, values in file_acc[reco_prefix].items():
+                acc[reco_prefix][name].extend(values)
+        event_ids.extend(file_ids)
+        event_rhos.extend(file_rhos)
+        return np.concatenate(file_weights) if file_weights else np.zeros(0, dtype=np.float64)
 
-    for i, f in enumerate(files):
-        process_file(f, weights[i])
+    # Normalize per sample, not per file: the events of all files in a sample
+    # together sum to that sample's weight, so splitting a sample across files
+    # (or skipping an unreadable one) does not change its overall normalization.
+    from .rucio_files import dataset_of
+
+    for sample, weight in zip(samples, weights):
+        datasets = sorted({d for d in map(dataset_of, sample) if d})
+        by_file = progress == "files" or (progress == "auto" and bool(datasets))
+        files = sample
+        if by_file:
+            # One bar per sample counting files, instead of a bar per file.
+            if datasets:
+                label = ", ".join(datasets)
+            else:
+                label = sample[0] if len(sample) == 1 else f"{os.path.basename(sample[0])} + {len(sample) - 1} more"
+            files = tqdm(sample, desc=label, unit="file")
+        read = [w for w in (process_file(f, not by_file) for f in files) if w is not None]
+        if not read:
+            raise OSError(f"No file of sample {sample} could be read, so it cannot be normalized")
+        sample_weights = np.concatenate(read)
+        if not np.sum(sample_weights) > 0:
+            raise ValueError(
+                f"Sample {sample if len(sample) <= 3 else sample[:3] + ['...']} has no events "
+                f"(or zero total weight), so it cannot be normalized"
+            )
+        event_weights.append(sample_weights * weight / np.sum(sample_weights))
+
+    if no_tree:
+        print(f"Note: {len(no_tree)} file(s) had no '{tree_name}' tree and were treated as empty:")
+        for f in no_tree:
+            print(f"  {f}")
+    if skipped:
+        print(f"WARNING: skipped {len(skipped)} unreadable file(s):")
+        for f in skipped:
+            print(f"  {f}")
 
     event_ids = np.concatenate(event_ids)
     event_weights = np.concatenate(event_weights)
@@ -712,6 +825,65 @@ def match_reco_truth(
             fields[name] = ak.unflatten(np.concatenate(acc[reco_prefix].pop(name)), counts)
         output[reco_prefix] = ak.zip(fields, depth_limit=1)
     return output
+
+
+# filename -> replica URL that opened / error if none did, so dead sites
+# are only tried once per run
+_REACHABLE: dict[str, str] = {}
+_UNREACHABLE: dict[str, OSError] = {}
+
+
+def _open_options(url: str, file_timeout) -> dict:
+    """uproot options for opening ``url``. The timeout only applies to XRootD
+    URLs, where uproot hands it to fsspec-xrootd as the per-operation timeout."""
+    if file_timeout is not None and url.startswith("root://"):
+        return {"timeout": int(math.ceil(file_timeout))}
+    return {}
+
+
+def open_reachable(filename: str, tree_name: str, file_timeout=None) -> tuple[str, Optional[int]]:
+    """Return (url, n_entries) for the first replica of ``filename`` that opens.
+    n_entries is None if the file has no ``tree_name`` tree (e.g. grid output
+    from a job that processed no events).
+
+    Files resolved from rucio:// entries may have copies at other sites; if one
+    site does not respond (e.g. XRootD "Operation expired"), try the next.
+    """
+    from .rucio_files import replica_alternatives
+
+    if filename in _UNREACHABLE:
+        raise _UNREACHABLE[filename]
+    if filename in _REACHABLE:
+        candidates = [_REACHABLE[filename]]
+    else:
+        candidates = [filename] + replica_alternatives(filename)
+    errors = []
+    for i, url in enumerate(candidates):
+        try:
+            with uproot.open(url, **_open_options(url, file_timeout)) as ftmp:
+                try:
+                    n_entries = ftmp[tree_name].num_entries
+                except uproot.KeyInFileError:
+                    n_entries = None
+            _REACHABLE[filename] = url
+            return url, n_entries
+        except OSError as err:
+            errors.append(f"  {url}: {err}")
+            if i + 1 < len(candidates):
+                tqdm.write(f"Could not open {url} ({err}); trying another replica")
+    _UNREACHABLE[filename] = OSError(
+        f"Could not open {filename} (tried {len(candidates)} replica(s)):\n" + "\n".join(errors)
+    )
+    raise _UNREACHABLE[filename]
+
+
+def sample_files(sample) -> list[str]:
+    """Files making up one sample entry: a single path/URL, or a list of them."""
+    if isinstance(sample, str):
+        return [sample]
+    if isinstance(sample, (list, tuple)) and sample and all(isinstance(f, str) for f in sample):
+        return list(sample)
+    raise ValueError(f"A sample must be a file path or a non-empty list of file paths, got: {sample!r}")
 
 
 def kth_sort_order(arr, sorton):
@@ -1806,6 +1978,9 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
         truth_pt_min=config.truth_pt_min,
         reco_iso_dr=config.reco_iso_dr,
         truth_iso_dr=config.truth_iso_dr,
+        file_timeout=config.file_timeout,
+        skip_unreadable_files=config.skip_unreadable_files,
+        progress=config.progress,
         **config.match_dict
     )
 
@@ -1825,6 +2000,9 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
         truth_pt_min=config.truth_pt_min,
         reco_iso_dr=config.reco_iso_dr,
         truth_iso_dr=config.truth_iso_dr,
+        file_timeout=config.file_timeout,
+        skip_unreadable_files=config.skip_unreadable_files,
+        progress=config.progress,
         **config.match_dict
     )
 
