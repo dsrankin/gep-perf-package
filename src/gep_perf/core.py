@@ -135,12 +135,19 @@ class RunConfig:
     pt_min: float = 10.
     reco_iso_dr: float = 0.4
     truth_iso_dr: float = 0.4
+    # Remote (root://) reads: per-operation XRootD timeout in seconds (None
+    # keeps the XRootD default), and whether a file that cannot be read is
+    # skipped with a warning instead of stopping the run.
+    file_timeout: Optional[float] = None
+    skip_unreadable_files: bool = False
         
     def __post_init__(self):
         if self.reco_labels is None:
             self.reco_labels = list(self.reco_prefixes)
         for sample in list(self.signal_files) + list(self.background_files):
             sample_files(sample)
+        if self.file_timeout is not None and not self.file_timeout > 0:
+            raise ValueError(f"file_timeout must be a positive number of seconds, got: {self.file_timeout!r}")
         if len(self.background_files)!=len(self.background_weights):
             raise ValueError(f"Background files ({len(self.background_files)}) and weights ({len(self.background_weights)}) must be the same length")
         if len(self.reco_labels)!=len(self.reco_prefixes):
@@ -510,6 +517,8 @@ def match_reco_truth(
     met_reco_ey_name="ey",
     met_special_prefixes=None,
     step_size=10000,
+    file_timeout=None,
+    skip_unreadable_files=False,
 ):
 
     if weights is None:
@@ -550,8 +559,19 @@ def match_reco_truth(
                 "elsewhere run `pip install fsspec-xrootd xrootd`."
             ) from err
 
-    first_url, _ = open_reachable(samples[0][0], tree_name)
-    with uproot.open(first_url) as ftmp:
+    # Branch list from the first file that can be read.
+    first_url = None
+    for f in (f for sample in samples for f in sample):
+        try:
+            first_url, _ = open_reachable(f, tree_name, file_timeout)
+            break
+        except OSError:
+            if not skip_unreadable_files:
+                raise
+            # reported (once) when the file is skipped below
+    if first_url is None:
+        raise OSError("None of the input files could be read")
+    with uproot.open(first_url, **_open_options(first_url, file_timeout)) as ftmp:
         available_branches = set(ftmp[tree_name].keys())
 
     reco_extra_branches = {}
@@ -620,9 +640,23 @@ def match_reco_truth(
     event_weights = []
     event_rhos = []
 
+    skipped = []
+
     def process_file(filename):
+        """Read one file; returns its raw event weights, or None if it was
+        skipped (only with skip_unreadable_files)."""
+        try:
+            return read_file(filename)
+        except OSError as err:
+            if not skip_unreadable_files:
+                raise
+            print(f"WARNING: skipping unreadable file {filename}: {err}")
+            skipped.append(filename)
+            return None
+
+    def read_file(filename):
         # Falls back to another replica if this file's site does not respond.
-        filename, n_events = open_reachable(filename, tree_name)
+        filename, n_events = open_reachable(filename, tree_name, file_timeout)
         total_chunks = math.ceil(n_events / step_size)
         print(f"{filename}: {total_chunks} chunks")
 
@@ -633,10 +667,17 @@ def match_reco_truth(
             branches,
             step_size=step_size,
             library="ak",
+            **_open_options(filename, file_timeout),
         )
 
+        # Collect this file's chunks separately and only add them once the
+        # whole file has been read, so a file that fails partway through
+        # leaves nothing behind if it is skipped.
         event_offset = 0
         file_weights = []
+        file_acc = {reco_prefix: {name: [] for name in acc[reco_prefix]} for reco_prefix in reco_prefixes}
+        file_ids = []
+        file_rhos = []
 
         for chunk in tqdm(it, total=total_chunks, desc=f"{filename}"):
             n_events_chunk = len(chunk[truth_branches[0]])
@@ -694,11 +735,11 @@ def match_reco_truth(
 
             for reco_prefix in reco_prefixes:
                 for name, values in results[reco_prefix].items():
-                    acc[reco_prefix][name].append(values)
+                    file_acc[reco_prefix][name].append(values)
 
-            event_ids.append(np.arange(event_offset, event_offset + n_events_chunk, dtype=np.int64))
+            file_ids.append(np.arange(event_offset, event_offset + n_events_chunk, dtype=np.int64))
             file_weights.append(np.asarray(ak.to_numpy(chunk["weight"]), dtype=np.float64))
-            event_rhos.append(
+            file_rhos.append(
                 np.asarray(
                     ak.to_numpy(ak.fill_none(ak.pad_none(chunk["gFEX_rho"], 3, axis=1, clip=True), 0.)),
                     dtype=np.float64,
@@ -709,14 +750,27 @@ def match_reco_truth(
             del chunk, results
             gc.collect()
 
+        for reco_prefix in reco_prefixes:
+            for name, values in file_acc[reco_prefix].items():
+                acc[reco_prefix][name].extend(values)
+        event_ids.extend(file_ids)
+        event_rhos.extend(file_rhos)
         return np.concatenate(file_weights) if file_weights else np.zeros(0, dtype=np.float64)
 
     # Normalize per sample, not per file: the events of all files in a sample
     # together sum to that sample's weight, so splitting a sample across files
-    # does not change its overall normalization.
+    # (or skipping an unreadable one) does not change its overall normalization.
     for sample, weight in zip(samples, weights):
-        sample_weights = np.concatenate([process_file(f) for f in sample])
+        read = [w for w in (process_file(f) for f in sample) if w is not None]
+        if not read:
+            raise OSError(f"No file of sample {sample} could be read, so it cannot be normalized")
+        sample_weights = np.concatenate(read)
         event_weights.append(sample_weights * weight / np.sum(sample_weights))
+
+    if skipped:
+        print(f"WARNING: skipped {len(skipped)} unreadable file(s):")
+        for f in skipped:
+            print(f"  {f}")
 
     event_ids = np.concatenate(event_ids)
     event_weights = np.concatenate(event_weights)
@@ -737,11 +791,21 @@ def match_reco_truth(
     return output
 
 
-# filename -> replica URL that opened, so dead sites are only tried once
+# filename -> replica URL that opened / error if none did, so dead sites
+# are only tried once per run
 _REACHABLE: dict[str, str] = {}
+_UNREACHABLE: dict[str, OSError] = {}
 
 
-def open_reachable(filename: str, tree_name: str) -> tuple[str, int]:
+def _open_options(url: str, file_timeout) -> dict:
+    """uproot options for opening ``url``. The timeout only applies to XRootD
+    URLs, where uproot hands it to fsspec-xrootd as the per-operation timeout."""
+    if file_timeout is not None and url.startswith("root://"):
+        return {"timeout": int(math.ceil(file_timeout))}
+    return {}
+
+
+def open_reachable(filename: str, tree_name: str, file_timeout=None) -> tuple[str, int]:
     """Return (url, n_entries) for the first replica of ``filename`` that opens.
 
     Files resolved from rucio:// entries may have copies at other sites; if one
@@ -749,6 +813,8 @@ def open_reachable(filename: str, tree_name: str) -> tuple[str, int]:
     """
     from .rucio_files import replica_alternatives
 
+    if filename in _UNREACHABLE:
+        raise _UNREACHABLE[filename]
     if filename in _REACHABLE:
         candidates = [_REACHABLE[filename]]
     else:
@@ -756,7 +822,7 @@ def open_reachable(filename: str, tree_name: str) -> tuple[str, int]:
     errors = []
     for i, url in enumerate(candidates):
         try:
-            with uproot.open(url) as ftmp:
+            with uproot.open(url, **_open_options(url, file_timeout)) as ftmp:
                 n_entries = ftmp[tree_name].num_entries
             _REACHABLE[filename] = url
             return url, n_entries
@@ -764,7 +830,10 @@ def open_reachable(filename: str, tree_name: str) -> tuple[str, int]:
             errors.append(f"  {url}: {err}")
             if i + 1 < len(candidates):
                 print(f"Could not open {url} ({err}); trying another replica")
-    raise OSError(f"Could not open {filename} (tried {len(candidates)} replica(s)):\n" + "\n".join(errors))
+    _UNREACHABLE[filename] = OSError(
+        f"Could not open {filename} (tried {len(candidates)} replica(s)):\n" + "\n".join(errors)
+    )
+    raise _UNREACHABLE[filename]
 
 
 def sample_files(sample) -> list[str]:
@@ -1868,6 +1937,8 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
         truth_pt_min=config.truth_pt_min,
         reco_iso_dr=config.reco_iso_dr,
         truth_iso_dr=config.truth_iso_dr,
+        file_timeout=config.file_timeout,
+        skip_unreadable_files=config.skip_unreadable_files,
         **config.match_dict
     )
 
@@ -1887,6 +1958,8 @@ def process_run(config: RunConfig, debug=True, prefix="", corr_cache=""):
         truth_pt_min=config.truth_pt_min,
         reco_iso_dr=config.reco_iso_dr,
         truth_iso_dr=config.truth_iso_dr,
+        file_timeout=config.file_timeout,
+        skip_unreadable_files=config.skip_unreadable_files,
         **config.match_dict
     )
 

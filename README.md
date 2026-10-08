@@ -158,6 +158,28 @@ it works in the `setup_lxplus.sh` environment. It needs:
 - `RUCIO_ACCOUNT`, only if your certificate maps to more than one Rucio account
 - `RUCIO_HOST` / `RUCIO_AUTH_HOST`, only to use servers other than ATLAS's
 
+If a file's site does not respond, the next replica of that file is tried
+automatically.
+
+### Unreachable files
+
+Two optional settings control what happens when remote files cannot be read:
+
+```yaml
+file_timeout: 60             # seconds per XRootD operation (root:// files only)
+skip_unreadable_files: true  # default false
+```
+
+- `file_timeout`: how long to wait for each XRootD operation before giving up
+  on a site. Unset, the XRootD client's own defaults apply. Local files are
+  not affected.
+- `skip_unreadable_files`: by default, a file that cannot be read (after trying
+  all its replicas) stops the run. With `true`, it is skipped with a warning,
+  including when it fails partway through (none of its events are kept), and
+  a list of skipped files is printed at the end. Each sample is normalized over
+  the files that were read, so its weight is unchanged. A sample with no
+  readable files is still an error.
+
 ### Corrected and uncorrected results
 
 Set `correction_modes` to any ordered combination of `corrected` and
