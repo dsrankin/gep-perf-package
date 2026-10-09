@@ -28,8 +28,7 @@ if [[ -z "$PLOT_JOBS" ]]; then
 fi
 echo "Running up to ${PLOT_JOBS} plot jobs in parallel"
 
-# Block until fewer than PLOT_JOBS background jobs are running. (Polls rather
-# than using `wait -n`, which the macOS default bash 3.2 lacks.)
+# Block until fewer than PLOT_JOBS background jobs are running.
 throttle() {
     while (( $(jobs -pr | wc -l) >= PLOT_JOBS )); do
         sleep 0.2
